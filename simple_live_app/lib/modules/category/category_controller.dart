@@ -44,6 +44,7 @@ class CategoryController extends GetxController
   @override
   void onClose() {
     streamSubscription?.cancel();
+    tabController.dispose();
     super.onClose();
   }
 }

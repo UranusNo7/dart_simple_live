@@ -37,8 +37,23 @@ class DBService extends GetxService {
     return null;
   }
 
+  static const int kMaxHistoryCount = 500;
+
   Future addOrUpdateHistory(History history) async {
     await historyBox.put(history.id, history);
+    _trimHistory();
+  }
+
+  void _trimHistory() {
+    final count = historyBox.length;
+    if (count > kMaxHistoryCount) {
+      final all = historyBox.values.toList();
+      all.sort((a, b) => a.updateTime.compareTo(b.updateTime));
+      final toRemove = all.sublist(0, count - kMaxHistoryCount);
+      for (final item in toRemove) {
+        historyBox.delete(item.id);
+      }
+    }
   }
 
   List<History> getHistores() {

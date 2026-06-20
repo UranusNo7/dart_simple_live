@@ -61,6 +61,13 @@ class BasePageController<T> extends BaseController {
   var canLoadMore = false.obs;
   var list = <T>[].obs;
 
+  @override
+  void onClose() {
+    scrollController.dispose();
+    easyRefreshController.dispose();
+    super.onClose();
+  }
+
   Future refreshData() async {
     currentPage = 1;
     list.value = [];

@@ -440,6 +440,7 @@ class FollowService extends GetxService {
   void onClose() {
     updateTimer?.cancel();
     subscription?.cancel();
+    _updatedListController.close();
     super.onClose();
   }
 }

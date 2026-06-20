@@ -206,6 +206,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     if (msg.type == LiveMessageType.chat) {
       if (messages.length > 200 && !disableAutoScroll.value) {
         messages.removeAt(0);
+      } else if (messages.length > 1000) {
+        messages.removeAt(0);
       }
 
       // 关键词屏蔽检查
@@ -1055,6 +1057,7 @@ ${error?.stackTrace}''');
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
     scrollController.removeListener(scrollListener);
+    scrollController.dispose();
     autoExitTimer?.cancel();
 
     liveDanmaku.stop();
