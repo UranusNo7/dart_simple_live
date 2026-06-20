@@ -93,27 +93,29 @@ class DBService extends GetxService {
   }
 
   static const int kMaxHistoryCount = 500;
+  static const int kTrimTriggerThreshold = 50;
 
   Future addOrUpdateHistory(History history) async {
     await historyBox.put(history.id, history);
-    _trimHistory();
-  }
-
-  void _trimHistory() {
-    final count = historyBox.length;
-    if (count > kMaxHistoryCount) {
-      final all = historyBox.values.toList();
-      all.sort((a, b) => a.updateTime.compareTo(b.updateTime));
-      final toRemove = all.sublist(0, count - kMaxHistoryCount);
-      for (final item in toRemove) {
-        historyBox.delete(item.id);
-      }
+    if (historyBox.length > kMaxHistoryCount + kTrimTriggerThreshold) {
+      _trimHistory();
     }
   }
 
-  List<History> getHistores() {
+  void _trimHistory() {
+    final all = historyBox.values.toList();
+    all.sort((a, b) => a.updateTime.compareTo(b.updateTime));
+    final toRemove = all.take(all.length - kMaxHistoryCount);
+    final ids = toRemove.map((e) => e.id).toList();
+    historyBox.deleteAll(ids);
+  }
+
+  List<History> getHistores({int? limit}) {
     var his = historyBox.values.toList();
     his.sort((a, b) => b.updateTime.compareTo(a.updateTime));
+    if (limit != null && his.length > limit) {
+      his = his.sublist(0, limit);
+    }
     return his;
   }
 }

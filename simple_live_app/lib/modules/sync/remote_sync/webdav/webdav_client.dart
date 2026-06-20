@@ -33,7 +33,8 @@ class DAVClient {
     try {
       await client.ping();
       return true;
-    } catch (_) {
+    } catch (e) {
+      Log.logPrint("WebDAV ping 失败: $e");
       return false;
     }
   }

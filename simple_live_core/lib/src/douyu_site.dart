@@ -373,8 +373,8 @@ class DouyuSite implements LiveSite {
         num *= 10000;
       }
       return num.round();
-    } catch (_) {
-      return -999;
+    } catch (e) {
+      return 0;
     }
   }
 

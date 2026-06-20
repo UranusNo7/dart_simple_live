@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
+import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/services/local_storage_service.dart';
 
 import 'package:flutter/material.dart';
@@ -85,6 +86,7 @@ class AppSettingsController extends GetxController {
 
     // ignore: invalid_use_of_protected_member
     shieldList.value = LocalStorageService.instance.shieldBox.values.toSet();
+    _rebuildShieldPatterns();
 
     scaleMode.value = LocalStorageService.instance.getValue(
       LocalStorageService.kPlayerScaleMode,
@@ -381,18 +383,37 @@ class AppSettingsController extends GetxController {
   }
 
   RxSet<String> shieldList = <String>{}.obs;
+
+  final List<Pattern> _shieldPatterns = [];
+  List<Pattern> get shieldPatterns => _shieldPatterns;
+  void _rebuildShieldPatterns() {
+    _shieldPatterns.clear();
+    for (var keyword in shieldList) {
+      if (Utils.isRegexFormat(keyword)) {
+        try {
+          _shieldPatterns.add(RegExp(Utils.removeRegexFormat(keyword)));
+        } catch (_) {}
+      } else {
+        _shieldPatterns.add(keyword);
+      }
+    }
+  }
+
   void addShieldList(String e) {
     shieldList.add(e);
+    _rebuildShieldPatterns();
     LocalStorageService.instance.shieldBox.put(e, e);
   }
 
   void removeShieldList(String e) {
     shieldList.remove(e);
+    _rebuildShieldPatterns();
     LocalStorageService.instance.shieldBox.delete(e);
   }
 
   Future clearShieldList() async {
     shieldList.clear();
+    _shieldPatterns.clear();
     await LocalStorageService.instance.shieldBox.clear();
   }
 
