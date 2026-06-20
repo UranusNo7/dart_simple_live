@@ -80,13 +80,10 @@ jobs:
         run: dart pub global activate flutter_distributor
 
       - name: Build Windows
+        shell: bash
         run: |
           cd simple_live_app
           flutter_distributor package --platform windows --targets zip --skip-clean
-
-      - name: Show build output
-        shell: pwsh
-        run: Get-ChildItem -LiteralPath simple_live_app\build\dist -Recurse -File | ForEach-Object { $_.FullName }
 
       - name: Get version from tag
         id: version

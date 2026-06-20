@@ -1,5 +1,6 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS")
 project(simple_live_app LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
@@ -43,6 +44,7 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+  target_compile_definitions(${TARGET} PRIVATE _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 endfunction()
 
 # Flutter library and tool build rules.
@@ -55,6 +57,7 @@ add_subdirectory("runner")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 include(flutter/generated_plugins.cmake)
 
 
