@@ -15,8 +15,8 @@ dependencies:
   # 框架、工具
   get: ^4.7.3 #状态管理、路由管理、国际化
   dio: ^5.9.0 #网络请求
-  hive: 2.2.3 #持久化存储
-  hive_flutter: 1.1.0 #持久化存储
+  hive_ce: ^2.19.3 #持久化存储
+  hive_ce_flutter: ^2.3.4 #持久化存储Flutter扩展
   logger: ^2.6.2 #日志
   intl: ^0.20.2 #国际化
   qr_flutter: ^4.1.0 #二维码生成
@@ -82,7 +82,7 @@ dependencies:
 dev_dependencies:
   flutter_lints: ^2.0.0
   build_runner: ^2.3.3
-  hive_generator: ^2.0.0
+  hive_ce_generator: ^1.4.0
   flutter_launcher_icons: ^0.13.1
   flutter_test:
     sdk: flutter
