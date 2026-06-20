@@ -34,10 +34,10 @@ jobs:
         run: dart pub global activate flutter_distributor
 
       - name: Build Windows
-        shell: bash
         run: |
+          $ErrorActionPreference = "Stop"
           cd simple_live_app
-          dart pub global run flutter_distributor package --platform windows --targets zip --skip-clean
+          flutter_distributor package --platform windows --targets zip --skip-clean
 
       - name: Get version from tag
         id: version
