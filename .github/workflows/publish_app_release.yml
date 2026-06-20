@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           cd simple_live_app
-          flutter_distributor package --platform windows --targets zip --skip-clean
+          dart pub global run flutter_distributor package --platform windows --targets zip --skip-clean
 
       - name: Get version from tag
         id: version
