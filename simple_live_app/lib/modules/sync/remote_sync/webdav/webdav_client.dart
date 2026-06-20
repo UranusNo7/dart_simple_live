@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:webdav_client/webdav_client.dart';
 
 class DAVClient {
@@ -34,7 +35,7 @@ class DAVClient {
       await client.ping();
       return true;
     } catch (e) {
-      Log.logPrint("WebDAV ping 失败: $e");
+      debugPrint("WebDAV ping 失败: $e");
       return false;
     }
   }

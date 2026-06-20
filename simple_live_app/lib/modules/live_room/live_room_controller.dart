@@ -328,7 +328,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       Log.logPrint(e);
       //SmartDialog.showToast(e.toString());
       loadError.value = true;
-      error = e is Error ? e : Exception(e.toString());
+      error = e is Error ? e : null;
     } finally {
       SmartDialog.dismiss(status: SmartStatus.loading);
     }
