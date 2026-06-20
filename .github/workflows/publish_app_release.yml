@@ -30,19 +30,32 @@ jobs:
           cd simple_live_app
           flutter pub get
 
-      - name: Install flutter_distributor
-        run: dart pub global activate flutter_distributor
-
       - name: Build Windows
         run: |
           $ErrorActionPreference = "Stop"
           cd simple_live_app
-          flutter_distributor package --platform windows --targets zip --skip-clean
+          flutter build windows --release
+
+      - name: Copy native assets
+        run: |
+          $nativeDir = "simple_live_app\build\native_assets\windows"
+          if (Test-Path $nativeDir) {
+            Copy-Item -Path "$nativeDir\*.dll" -Destination "simple_live_app\build\windows\x64\runner\Release\" -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Get version from tag
         id: version
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Windows zip
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ steps.version.outputs.VERSION }}"
+          if (-not $version) { $version = "temp" }
+          $distDir = "simple_live_app\build\dist\$version"
+          New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+          Compress-Archive -Path "simple_live_app\build\windows\x64\runner\Release\*" -DestinationPath "$distDir\simple_live_app-$version-windows.zip"
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
