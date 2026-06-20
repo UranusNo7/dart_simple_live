@@ -472,14 +472,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                       children: [
                         ListView.separated(
                           controller: controller.scrollController,
-                          separatorBuilder: (_, i) => Obx(
-                            () => SizedBox(
-                              // *2与原来的EdgeInsets.symmetric(vertical: )做兼容
-                              height: AppSettingsController
-                                      .instance.chatTextGap.value *
-                                  2,
-                            ),
-                          ),
+                          separatorBuilder: (_, i) => const SizedBox(height: 4),
                           padding: AppStyle.edgeInsetsA12,
                           itemCount: controller.messages.length,
                           itemBuilder: (_, i) {

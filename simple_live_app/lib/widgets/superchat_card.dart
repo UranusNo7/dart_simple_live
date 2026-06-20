@@ -22,37 +22,33 @@ class SuperChatCard extends StatefulWidget {
 }
 
 class _SuperChatCardState extends State<SuperChatCard> {
-  late Timer timer;
-
-  int countdown = 0;
+  late final Stream<int> _countdownStream;
+  late final StreamSubscription<int> _countdownSub;
+  int _countdown = 0;
 
   @override
   void initState() {
+    super.initState();
     var currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     var endTime = widget.message.endTime.millisecondsSinceEpoch ~/ 1000;
+    _countdown = endTime - currentTime;
 
-    countdown = endTime - currentTime;
-
-    timer = Timer.periodic(const Duration(seconds: 1), timerCallback);
-
-    super.initState();
-  }
-
-  void timerCallback(e) {
-    if (countdown <= 0) {
-      widget.onExpire?.call();
-      timer.cancel();
-      return;
-    }
-
-    setState(() {
-      countdown -= 1;
-    });
+    _countdownSub = Stream<int>.periodic(
+      const Duration(seconds: 1),
+      (tick) => _countdown - tick - 1,
+    ).takeWhile((v) => v >= 0).listen(
+      (v) {
+        if (mounted) setState(() => _countdown = v);
+      },
+      onDone: () {
+        if (mounted) widget.onExpire?.call();
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final displayCountdown = widget.customCountdown ?? countdown;
+    final displayCountdown = widget.customCountdown ?? _countdown;
     return ClipRRect(
       borderRadius: AppStyle.radius8,
       child: Container(
@@ -80,9 +76,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
                       children: [
                         Text(
                           widget.message.userName,
-                          style: const TextStyle(
-                            color: AppColors.black333,
-                          ),
+                          style: const TextStyle(color: AppColors.black333),
                         ),
                         Text(
                           "￥${widget.message.price}",
@@ -123,7 +117,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
   @override
   void dispose() {
-    timer.cancel();
+    _countdownSub.cancel();
     super.dispose();
   }
 }
