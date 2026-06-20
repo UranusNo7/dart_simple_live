@@ -252,6 +252,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
   /// 释放一些系统状态
   Future resetSystem() async {
     _pipSubscription?.cancel();
+    pip.cancelOnLeavePiP();
     await SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
@@ -455,7 +456,7 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
       ratio = const Rational.landscape();
     }
     await pip.enable(
-      ImmediatePiP(
+      OnLeavePiP(
         aspectRatio: ratio,
       ),
     );
