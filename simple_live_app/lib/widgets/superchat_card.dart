@@ -22,17 +22,25 @@ class SuperChatCard extends StatefulWidget {
 }
 
 class _SuperChatCardState extends State<SuperChatCard> {
-  late final Stream<int> _countdownStream;
-  late final StreamSubscription<int> _countdownSub;
+  late StreamSubscription<int> _countdownSub;
   int _countdown = 0;
+
+  int _resolveCountdown() {
+    if (widget.customCountdown != null) {
+      return widget.customCountdown!.clamp(0, 1 << 30).toInt();
+    }
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final endTime = widget.message.endTime.millisecondsSinceEpoch ~/ 1000;
+    return (endTime - currentTime).clamp(0, 1 << 30).toInt();
+  }
 
   @override
   void initState() {
     super.initState();
-    var currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var endTime = widget.message.endTime.millisecondsSinceEpoch ~/ 1000;
-    _countdown = endTime - currentTime;
-
+    _countdown = _resolveCountdown();
+    if (_countdown <= 0 && widget.customCountdown == null) {
+      return;
+    }
     _countdownSub = Stream<int>.periodic(
       const Duration(seconds: 1),
       (tick) => _countdown - tick - 1,
@@ -47,8 +55,32 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   @override
+  void didUpdateWidget(covariant SuperChatCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message != widget.message ||
+        oldWidget.customCountdown != widget.customCountdown) {
+      _countdownSub.cancel();
+      _countdown = _resolveCountdown();
+      if (_countdown <= 0 && widget.customCountdown == null) return;
+      _countdownSub = Stream<int>.periodic(
+        const Duration(seconds: 1),
+        (tick) => _countdown - tick - 1,
+      ).takeWhile((v) => v >= 0).listen(
+        (v) {
+          if (mounted) setState(() => _countdown = v);
+        },
+        onDone: () {
+          if (mounted) widget.onExpire?.call();
+        },
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final displayCountdown = widget.customCountdown ?? _countdown;
+    final displayCountdown = (widget.customCountdown ?? _countdown)
+        .clamp(0, 1 << 30)
+        .toInt();
     return ClipRRect(
       borderRadius: AppStyle.radius8,
       child: Container(

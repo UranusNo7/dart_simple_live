@@ -349,6 +349,8 @@ class HuyaSite implements LiveSite {
     var roomInfo = await _getRoomInfo(roomId);
     var tLiveInfo = roomInfo["roomInfo"]["tLiveInfo"];
     var tProfileInfo = roomInfo["roomInfo"]["tProfileInfo"];
+    var topSid = _asPositiveInt(roomInfo["topSid"]);
+    var subSid = _asPositiveInt(roomInfo["subSid"]);
 
     var title = tLiveInfo["sIntroduction"]?.toString() ?? "";
     if (title.isEmpty) {
@@ -356,7 +358,6 @@ class HuyaSite implements LiveSite {
     }
     var huyaLines = <HuyaLineModel>[];
     var huyaBiterates = <HuyaBitRateModel>[];
-    //读取可用线路
     var lines = tLiveInfo["tLiveStreamInfo"]["vStreamInfo"]["value"];
     for (var item in lines) {
       if ((item["sFlvUrl"]?.toString() ?? "").isNotEmpty) {
@@ -367,7 +368,7 @@ class HuyaSite implements LiveSite {
           hlsAntiCode: item["sHlsAntiCode"].toString(),
           streamName: item["sStreamName"].toString(),
           cdnType: item["sCdnType"].toString(),
-          presenterUid: roomInfo["topSid"]??0,
+          presenterUid: topSid > 0 ? topSid : subSid,
         ));
       }
     }
@@ -407,8 +408,8 @@ class HuyaSite implements LiveSite {
       ),
       danmakuData: HuyaDanmakuArgs(
         ayyuid: tLiveInfo["lYyid"] ?? 0,
-        topSid: topSid ?? 0,
-        subSid: subSid ?? 0,
+        topSid: topSid,
+        subSid: subSid,
       ),
       url: "https://www.huya.com/$roomId",
     );
@@ -441,9 +442,61 @@ class HuyaSite implements LiveSite {
     var subSid = int.tryParse(
         RegExp(r'lSubChannelId":([0-9]+)').firstMatch(resultText)?.group(1) ??
             "0");
+    topSid = topSid != null && topSid > 0
+        ? topSid
+        : _firstPositiveIntByKeys(jsonObj, const {"lchannelid", "channelid"});
+    subSid = subSid != null && subSid > 0
+        ? subSid
+        : _firstPositiveIntByKeys(jsonObj, const {
+            "lsubchannelid",
+            "subchannelid",
+          });
     jsonObj["topSid"] = topSid;
     jsonObj["subSid"] = subSid;
     return jsonObj;
+  }
+
+  int _asPositiveInt(dynamic value) {
+    if (value is int) {
+      return value > 0 ? value : 0;
+    }
+    final parsed = int.tryParse(value?.toString().trim() ?? "");
+    return parsed != null && parsed > 0 ? parsed : 0;
+  }
+
+  int _firstPositiveIntByKeys(
+    dynamic source,
+    Set<String> keys, {
+    int depth = 0,
+  }) {
+    if (source == null || depth > 8) {
+      return 0;
+    }
+    if (source is Map) {
+      for (final entry in source.entries) {
+        final key = entry.key?.toString().toLowerCase();
+        if (key != null && keys.contains(key)) {
+          final value = _asPositiveInt(entry.value);
+          if (value > 0) {
+            return value;
+          }
+        }
+      }
+      for (final value in source.values) {
+        final result = _firstPositiveIntByKeys(value, keys, depth: depth + 1);
+        if (result > 0) {
+          return result;
+        }
+      }
+    } else if (source is List) {
+      for (final item in source) {
+        final result = _firstPositiveIntByKeys(item, keys, depth: depth + 1);
+        if (result > 0) {
+          return result;
+        }
+      }
+    }
+    return 0;
   }
 
   @override
