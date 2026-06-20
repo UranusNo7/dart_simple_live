@@ -127,12 +127,12 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         return;
       }
 
-      addDanmaku([
+      addDanmaku(
         DanmakuContentItem(
           msg.message,
           color: Color.fromARGB(255, msg.color.r, msg.color.g, msg.color.b),
         ),
-      ]);
+      );
     } else if (msg.type == LiveMessageType.online) {
       online.value = msg.data;
     } else if (msg.type == LiveMessageType.superChat) {

@@ -214,13 +214,11 @@ mixin PlayerDanmakuMixin on PlayerStateMixin {
     danmakuController?.clear();
   }
 
-  void addDanmaku(List<DanmakuContentItem> items) {
+  void addDanmaku(DanmakuContentItem item) {
     if (!showDanmakuState.value) {
       return;
     }
-    for (var item in items) {
-      danmakuController?.addDanmaku(item);
-    }
+    danmakuController?.addDanmaku(item);
   }
 }
 mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {

@@ -68,19 +68,24 @@ class SignalRService {
 
   void _listen() {
     hubConnection?.on("onFavoriteReceived", (args) {
-      _onFavoriteStreamController.add((args![0] as bool, args[1] as String));
+      if (args == null || args.length < 2) return;
+      _onFavoriteStreamController.add((args[0] as bool, args[1] as String));
     });
     hubConnection?.on("onHistoryReceived", (args) {
-      _onHistoryStreamController.add((args![0] as bool, args[1] as String));
+      if (args == null || args.length < 2) return;
+      _onHistoryStreamController.add((args[0] as bool, args[1] as String));
     });
     hubConnection?.on("onShieldWordReceived", (args) {
-      _onShieldWordStreamController.add((args![0] as bool, args[1] as String));
+      if (args == null || args.length < 2) return;
+      _onShieldWordStreamController.add((args[0] as bool, args[1] as String));
     });
     hubConnection?.on("onBiliAccountReceived", (args) {
-      _onBiliAccountStreamController.add((args![0] as bool, args[1] as String));
+      if (args == null || args.length < 2) return;
+      _onBiliAccountStreamController.add((args[0] as bool, args[1] as String));
     });
     hubConnection?.on("onRoomDestroyed", (args) {
-      _onRoomDestroyedStreamController.add(args![0].toString());
+      if (args == null || args.isEmpty) return;
+      _onRoomDestroyedStreamController.add(args[0].toString());
     });
     hubConnection?.on("onUserUpdated", (args) {
       var list = (args![0] as List).map((e) => RoomUser.fromObject(e)).toList();

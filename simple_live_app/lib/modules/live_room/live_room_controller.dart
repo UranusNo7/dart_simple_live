@@ -239,7 +239,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         return;
       }
 
-      addDanmaku([
+      addDanmaku(
         DanmakuContentItem(
           msg.message,
           color: Color.fromARGB(
@@ -249,7 +249,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
             msg.color.b,
           ),
         ),
-      ]);
+      );
     } else if (msg.type == LiveMessageType.online) {
       online.value = msg.data;
     } else if (msg.type == LiveMessageType.superChat) {
@@ -337,7 +337,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       Log.logPrint(e);
       //SmartDialog.showToast(e.toString());
       loadError.value = true;
-      error = e as Error;
+      error = e is Error ? e : Exception(e.toString());
     } finally {
       SmartDialog.dismiss(status: SmartStatus.loading);
     }

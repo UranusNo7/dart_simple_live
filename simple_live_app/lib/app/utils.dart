@@ -188,7 +188,7 @@ class Utils {
     double maxWidth = 600,
   }) async {
     var result = await showModalBottomSheet(
-      context: Get.context!,
+      context: Get.overlayContext ?? Get.context!,
       constraints: BoxConstraints(
         maxWidth: maxWidth,
       ),
