@@ -29,6 +29,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
+  static const int kMaxMessagesSoftLimit = 200;
+  static const int kMaxMessagesHardLimit = 1000;
+
   final Site pSite;
   final String pRoomId;
   late LiveDanmaku liveDanmaku;
@@ -204,9 +207,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 接收到WebSocket信息
   void onWSMessage(LiveMessage msg) {
     if (msg.type == LiveMessageType.chat) {
-      if (messages.length > 200 && !disableAutoScroll.value) {
+      if (messages.length > kMaxMessagesSoftLimit && !disableAutoScroll.value) {
         messages.removeAt(0);
-      } else if (messages.length > 1000) {
+      } else if (messages.length > kMaxMessagesHardLimit) {
         messages.removeAt(0);
       }
 
