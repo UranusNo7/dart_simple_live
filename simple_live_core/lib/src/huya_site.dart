@@ -386,9 +386,6 @@ class HuyaSite implements LiveSite {
       ));
     }
 
-    var topSid = roomInfo["topSid"];
-    var subSid = roomInfo["subSid"];
-
     return LiveRoomDetail(
       cover: tLiveInfo["sScreenshot"].toString(),
       online: tLiveInfo["lTotalCount"],
