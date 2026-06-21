@@ -61,7 +61,7 @@ class WebScoketUtils {
   StreamSubscription<dynamic>? streamSubscription;
 
   void connect({bool retry = false}) async {
-    close();
+    close(cancelReconnect: false);
     try {
       var wsurl = url;
       if (backupUrl != null && backupUrl!.isNotEmpty && retry) {
@@ -93,6 +93,10 @@ class WebScoketUtils {
       onError: (e, s) => onError(e, s),
       onDone: onDone,
     );
+
+    reconnectTimer?.cancel();
+    reconnectTimer = null;
+    reconnectTime = 0;
 
     onReady?.call();
     initHeartBeat();
@@ -132,13 +136,15 @@ class WebScoketUtils {
     }
   }
 
-  void close() {
+  void close({bool cancelReconnect = true}) {
     status = SocketStatus.closed;
 
     streamSubscription?.cancel();
 
-    reconnectTimer?.cancel();
-    reconnectTimer = null;
+    if (cancelReconnect) {
+      reconnectTimer?.cancel();
+      reconnectTimer = null;
+    }
 
     webSocket?.sink.close();
 
@@ -147,18 +153,16 @@ class WebScoketUtils {
   }
 
   void reconnect() {
-    status = SocketStatus.closed;
-    if (reconnectTime < maxReconnectTime) {
-      reconnectTime++;
-      reconnectTimer ??= Timer.periodic(Duration(seconds: 5), (timer) {
-        connect();
-      });
-    } else {
+    if (reconnectTime >= maxReconnectTime) {
       onClose?.call("重连超过最大次数，与服务器断开连接");
-      reconnectTimer?.cancel();
-      reconnectTimer = null;
       close();
       return;
     }
+    status = SocketStatus.closed;
+    reconnectTime++;
+    reconnectTimer?.cancel();
+    reconnectTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      connect();
+    });
   }
 }
