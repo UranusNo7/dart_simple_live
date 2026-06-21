@@ -34,6 +34,7 @@ class LiveRoomCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   height: 110,
                   width: double.infinity,
+                  cacheWidth: 400,
                 ),
               ),
               Positioned(

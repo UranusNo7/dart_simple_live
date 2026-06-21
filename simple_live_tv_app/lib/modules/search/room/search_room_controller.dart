@@ -32,10 +32,10 @@ class SearchRoomController extends BasePageController<LiveRoomItemExt> {
   }
 
   @override
-  Future<List<LiveRoomItemExt>> getData(int page, int pageSize) async {
+  Future<PageData<LiveRoomItemExt>> getPageData(int page, int pageSize) async {
     var result = await site.liveSite.searchRooms(keyword, page: page);
 
-    return result.items
+    var items = result.items
         .map((e) => LiveRoomItemExt(
               roomId: e.roomId,
               title: e.title,
@@ -44,6 +44,7 @@ class SearchRoomController extends BasePageController<LiveRoomItemExt> {
               online: e.online,
             ))
         .toList();
+    return PageData(items: items, hasMore: result.hasMore);
   }
 
   @override

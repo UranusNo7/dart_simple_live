@@ -31,10 +31,10 @@ class HotliveController extends BasePageController<LiveRoomItemExt> {
   }
 
   @override
-  Future<List<LiveRoomItemExt>> getData(int page, int pageSize) async {
+  Future<PageData<LiveRoomItemExt>> getPageData(int page, int pageSize) async {
     var result = await site.liveSite.getRecommendRooms(page: page);
 
-    return result.items
+    var items = result.items
         .map((e) => LiveRoomItemExt(
               roomId: e.roomId,
               title: e.title,
@@ -43,6 +43,7 @@ class HotliveController extends BasePageController<LiveRoomItemExt> {
               online: e.online,
             ))
         .toList();
+    return PageData(items: items, hasMore: result.hasMore);
   }
 
   @override

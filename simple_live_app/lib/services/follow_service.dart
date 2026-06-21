@@ -190,6 +190,9 @@ class FollowService extends GetxService {
   }
 
   void startUpdateStatus() async {
+    if (updating.value) {
+      return;
+    }
     updatedCount = 0;
     updating.value = true;
 
@@ -202,12 +205,17 @@ class FollowService extends GetxService {
 
     // 创建任务队列
     var taskQueue = Queue<FollowUser>.from(interleavedList);
+    var total = taskQueue.length;
+    if (total == 0) {
+      updating.value = false;
+      return;
+    }
 
     // 工作函数 - 持续从队列中取任务执行
     Future<void> worker(int workerId) async {
       while (taskQueue.isNotEmpty) {
         var item = taskQueue.removeFirst();
-        await updateLiveStatus(item);
+        await updateLiveStatus(item, total);
       }
     }
 
@@ -222,7 +230,7 @@ class FollowService extends GetxService {
     Log.logPrint("关注状态更新完成");
   }
 
-  Future updateLiveStatus(FollowUser item) async {
+  Future updateLiveStatus(FollowUser item, int total) async {
     try {
       var site = Sites.allSites[item.siteId]!;
       // 先只查状态
@@ -241,7 +249,7 @@ class FollowService extends GetxService {
       item.liveStartTime = null;
     } finally {
       updatedCount++;
-      if (updatedCount >= followList.length) {
+      if (updatedCount >= total) {
         filterData();
         updating.value = false;
       }

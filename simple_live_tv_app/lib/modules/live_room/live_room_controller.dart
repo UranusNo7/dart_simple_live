@@ -61,13 +61,23 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var isBackground = false;
 
   var datetime = "00:00".obs;
+  Timer? _datetimeTimer;
 
   void initTimer() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      var now = DateTime.now();
-      datetime.value =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    _updateDateTime();
+    _datetimeTimer?.cancel();
+    _datetimeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateDateTime();
     });
+  }
+
+  void _updateDateTime() {
+      var now = DateTime.now();
+      var value =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      if (datetime.value != value) {
+        datetime.value = value;
+      }
   }
 
   /// 双击退出Flag
@@ -431,6 +441,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    _datetimeTimer?.cancel();
     liveDanmaku.stop();
 
     danmakuController = null;

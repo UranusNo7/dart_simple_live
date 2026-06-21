@@ -51,6 +51,16 @@ class BaseController extends GetxController {
   void onLogout() {}
 }
 
+class PageData<T> {
+  final List<T> items;
+  final bool hasMore;
+
+  const PageData({
+    required this.items,
+    required this.hasMore,
+  });
+}
+
 class BasePageController<T> extends BaseController {
   final ScrollController scrollController = ScrollController();
   final EasyRefreshController easyRefreshController = EasyRefreshController();
@@ -83,11 +93,12 @@ class BasePageController<T> extends BaseController {
       notLogin.value = false;
       pageLoadding.value = currentPage == 1;
 
-      var result = await getData(currentPage, pageSize);
+      var pageData = await getPageData(currentPage, pageSize);
+      var result = pageData.items;
       //是否可以加载更多
       if (result.isNotEmpty) {
         currentPage++;
-        canLoadMore.value = true;
+        canLoadMore.value = pageData.hasMore;
         pageEmpty.value = false;
       } else {
         canLoadMore.value = false;
@@ -111,6 +122,11 @@ class BasePageController<T> extends BaseController {
 
   Future<List<T>> getData(int page, int pageSize) async {
     return [];
+  }
+
+  Future<PageData<T>> getPageData(int page, int pageSize) async {
+    var result = await getData(page, pageSize);
+    return PageData(items: result, hasMore: result.isNotEmpty);
   }
 
   void scrollToTopOrRefresh() {

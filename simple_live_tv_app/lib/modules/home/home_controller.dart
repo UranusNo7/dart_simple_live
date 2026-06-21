@@ -8,6 +8,7 @@ import 'package:simple_live_tv_app/routes/route_path.dart';
 
 class HomeController extends BaseController {
   var datetime = "00:00".obs;
+  Timer? _timer;
 
   @override
   void onInit() {
@@ -16,11 +17,20 @@ class HomeController extends BaseController {
   }
 
   void initTimer() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
-      var now = DateTime.now();
-      datetime.value =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+    _updateDateTime();
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateDateTime();
     });
+  }
+
+  void _updateDateTime() {
+      var now = DateTime.now();
+      var value =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      if (datetime.value != value) {
+        datetime.value = value;
+      }
   }
 
   void toSync() {
@@ -53,5 +63,11 @@ class HomeController extends BaseController {
 
   void toCategory() {
     Get.toNamed(RoutePath.kCategory);
+  }
+
+  @override
+  void onClose() {
+    _timer?.cancel();
+    super.onClose();
   }
 }

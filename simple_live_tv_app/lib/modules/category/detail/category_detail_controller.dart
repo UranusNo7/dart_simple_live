@@ -27,9 +27,9 @@ class CategoryDetailController extends BasePageController<LiveRoomItemExt> {
   }
 
   @override
-  Future<List<LiveRoomItemExt>> getData(int page, int pageSize) async {
+  Future<PageData<LiveRoomItemExt>> getPageData(int page, int pageSize) async {
     var result = await site.liveSite.getCategoryRooms(subCategory, page: page);
-    return result.items
+    var items = result.items
         .map(
           (e) => LiveRoomItemExt(
             roomId: e.roomId,
@@ -40,6 +40,7 @@ class CategoryDetailController extends BasePageController<LiveRoomItemExt> {
           ),
         )
         .toList();
+    return PageData(items: items, hasMore: result.hasMore);
   }
 
   @override

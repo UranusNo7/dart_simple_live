@@ -34,6 +34,7 @@ class NetImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(borderRadius),
       child: ExtendedImage.network(
         pic,
+        cache: true,
         fit: fit,
         height: height,
         width: width,

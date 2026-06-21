@@ -21,18 +21,18 @@ class SearchListController extends BasePageController {
   }
 
   @override
-  Future<List> getData(int page, int pageSize) async {
+  Future<PageData> getPageData(int page, int pageSize) async {
     if (keyword.isEmpty) {
-      return [];
+      return const PageData(items: [], hasMore: false);
     }
     if (searchMode.value == 1) {
       // 搜索主播
       var result = await site.liveSite.searchAnchors(keyword, page: page);
-      return result.items;
+      return PageData(items: result.items, hasMore: result.hasMore);
     }
     var result = await site.liveSite.searchRooms(keyword, page: page);
 
-    return result.items;
+    return PageData(items: result.items, hasMore: result.hasMore);
   }
 
   void clear() {

@@ -78,11 +78,22 @@ class FollowUserService extends BasePageController<FollowUser> {
   }
 
   void startUpdateStatus(List<FollowUser> followList) async {
+    if (updating.value) {
+      return;
+    }
     updatedCount = 0;
     updating.value = true;
+    var total = followList.length;
+    if (total == 0) {
+      updating.value = false;
+      return;
+    }
 
     var threadCount =
         AppSettingsController.instance.updateFollowThreadCount.value;
+    if (threadCount < 1) {
+      threadCount = 1;
+    }
 
     var tasks = <Future>[];
     for (var i = 0; i < threadCount; i++) {
@@ -97,7 +108,7 @@ class FollowUserService extends BasePageController<FollowUser> {
           }
           var items = followList.sublist(start, end);
           for (var item in items) {
-            await updateLiveStatus(item);
+            await updateLiveStatus(item, total);
           }
         }),
       );
@@ -105,7 +116,7 @@ class FollowUserService extends BasePageController<FollowUser> {
     await Future.wait(tasks);
   }
 
-  Future updateLiveStatus(FollowUser item) async {
+  Future updateLiveStatus(FollowUser item, int total) async {
     try {
       var site = Sites.allSites[item.siteId]!;
       item.liveStatus.value =
@@ -116,7 +127,7 @@ class FollowUserService extends BasePageController<FollowUser> {
       Log.logPrint(e);
     } finally {
       updatedCount++;
-      if (updatedCount >= list.length) {
+      if (updatedCount >= total) {
         sortList();
         updating.value = false;
       }

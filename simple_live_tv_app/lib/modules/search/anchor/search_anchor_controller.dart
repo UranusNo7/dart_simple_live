@@ -33,10 +33,10 @@ class SearchAnchorController extends BasePageController<LiveAnchorItemExt> {
   }
 
   @override
-  Future<List<LiveAnchorItemExt>> getData(int page, int pageSize) async {
+  Future<PageData<LiveAnchorItemExt>> getPageData(int page, int pageSize) async {
     var result = await site.liveSite.searchAnchors(keyword, page: page);
 
-    return result.items
+    var items = result.items
         .map((e) => LiveAnchorItemExt(
               roomId: e.roomId,
               avatar: e.avatar,
@@ -44,6 +44,7 @@ class SearchAnchorController extends BasePageController<LiveAnchorItemExt> {
               userName: e.userName,
             ))
         .toList();
+    return PageData(items: items, hasMore: result.hasMore);
   }
 
   @override

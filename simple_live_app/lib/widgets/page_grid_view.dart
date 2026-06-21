@@ -35,22 +35,22 @@ class PageGridView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => Stack(
-        children: [
-          EasyRefresh(
-            header: MaterialHeader(
-              completeDuration: const Duration(milliseconds: 400),
-            ),
-            footer: MaterialFooter(
-              completeDuration: const Duration(milliseconds: 400),
-            ),
-            scrollController: pageController.scrollController,
-            controller: pageController.easyRefreshController,
-            firstRefresh: firstRefresh,
-            onLoad: pageController.loadData,
-            onRefresh: pageController.refreshData,
-            child: MasonryGridView.count(
+    return Stack(
+      children: [
+        EasyRefresh(
+          header: MaterialHeader(
+            completeDuration: const Duration(milliseconds: 400),
+          ),
+          footer: MaterialFooter(
+            completeDuration: const Duration(milliseconds: 400),
+          ),
+          scrollController: pageController.scrollController,
+          controller: pageController.easyRefreshController,
+          firstRefresh: firstRefresh,
+          onLoad: pageController.loadData,
+          onRefresh: pageController.refreshData,
+          child: Obx(
+            () => MasonryGridView.count(
               padding: padding,
               itemCount: pageController.list.length,
               itemBuilder: itemBuilder,
@@ -59,12 +59,14 @@ class PageGridView extends StatelessWidget {
               mainAxisSpacing: mainAxisSpacing,
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: // 加载更多按钮
-                Visibility(
+        ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: // 加载更多按钮
+              Obx(
+            () => Visibility(
               visible: (Platform.isWindows ||
                       Platform.isLinux ||
                       Platform.isMacOS) &&
@@ -79,11 +81,13 @@ class PageGridView extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            bottom: 12,
-            right: 12,
-            child: // 加载更多按钮
-                Visibility(
+        ),
+        Positioned(
+          bottom: 12,
+          right: 12,
+          child: // 加载更多按钮
+              Obx(
+            () => Visibility(
               visible: (Platform.isWindows ||
                       Platform.isLinux ||
                       Platform.isMacOS) &&
@@ -105,25 +109,32 @@ class PageGridView extends StatelessWidget {
               ),
             ),
           ),
-          Offstage(
+        ),
+        Obx(
+          () => Offstage(
             offstage: !pageController.pageEmpty.value,
             child: AppEmptyWidget(
               onRefresh: () => pageController.refreshData(),
             ),
           ),
-          Offstage(
-            offstage: !(showPageLoadding && pageController.pageLoadding.value),
+        ),
+        Obx(
+          () => Offstage(
+            offstage:
+                !(showPageLoadding && pageController.pageLoadding.value),
             child: const AppLoaddingWidget(),
           ),
-          Offstage(
+        ),
+        Obx(
+          () => Offstage(
             offstage: !pageController.pageError.value,
             child: AppErrorWidget(
               errorMsg: pageController.errorMsg.value,
               onRefresh: () => pageController.refreshData(),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

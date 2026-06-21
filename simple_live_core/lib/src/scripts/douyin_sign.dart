@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:dart_quickjs/dart_quickjs.dart';
 import 'package:simple_live_core/simple_live_core.dart';
@@ -10648,45 +10649,70 @@ function getMSSDKSignature(msStub, userAgent) {
 ''';
 
   static const String defaultUserAgent = DouyinSite.kDefaultUserAgent;
+  static JsRuntime? _aBogusRuntime;
+  static JsRuntime? _signatureRuntime;
+
+  static JsRuntime _getABogusRuntime() {
+    var runtime = _aBogusRuntime;
+    if (runtime == null) {
+      runtime = JsRuntime(
+        memoryLimit: 4 * 1024 * 1024,
+        maxStackSize: 64 * 1024,
+      );
+      runtime.eval(kABogus);
+      _aBogusRuntime = runtime;
+    }
+    return runtime;
+  }
+
+  static JsRuntime _getSignatureRuntime() {
+    var runtime = _signatureRuntime;
+    if (runtime == null) {
+      runtime = JsRuntime(
+        memoryLimit: 4 * 1024 * 1024,
+        maxStackSize: 128 * 1024,
+      );
+      runtime.eval(kWebMsSDK);
+      _signatureRuntime = runtime;
+    }
+    return runtime;
+  }
+
   static String getAbogusUrl(String url, String userAgent) {
-    JsRuntime flutterJs = JsRuntime(
-      memoryLimit: 4 * 1024 * 1024,
-      maxStackSize: 64 * 1024,
-    );
     try {
       final msToken = generateMsToken(107);
       var params = ('$url&msToken=$msToken').split('?')[1];
       var query = params.contains("?") ? params.split("?")[1] : params;
-      var jsCode = kABogus;
-      flutterJs.eval(jsCode);
-      var aBogus = flutterJs.eval("getABogus('$query', '$userAgent')");
+      var aBogus = _getABogusRuntime().eval(
+        "getABogus(${jsonEncode(query)}, ${jsonEncode(userAgent)})",
+      );
       var newUrl =
-          '$url&msToken=${Uri.encodeComponent(msToken)}&a_bogus=${Uri.encodeComponent(aBogus)}';
+          '$url&msToken=${Uri.encodeComponent(msToken)}&a_bogus=${Uri.encodeComponent(aBogus.toString())}';
       return newUrl;
-    } finally {
-      flutterJs.dispose();
+    } catch (_) {
+      _aBogusRuntime?.dispose();
+      _aBogusRuntime = null;
+      rethrow;
     }
   }
 
   static String getSignature(String roomId, String uniqueId) {
-    JsRuntime flutterJs = JsRuntime(
-      memoryLimit: 4 * 1024 * 1024,
-      maxStackSize: 128 * 1024,
-    );
     try {
-      flutterJs.eval(kWebMsSDK);
+      var flutterJs = _getSignatureRuntime();
       var msStub = getMsStub(roomId, uniqueId);
       var signature = flutterJs.eval(
         "getMSSDKSignature('$msStub','$defaultUserAgent')",
-      );
+      ).toString();
       while (signature.contains('-') || signature.contains('=')) {
         signature = flutterJs.eval(
           "getMSSDKSignature('$msStub','$defaultUserAgent')",
-        );
+        ).toString();
       }
       return signature;
-    } finally {
-      flutterJs.dispose();
+    } catch (_) {
+      _signatureRuntime?.dispose();
+      _signatureRuntime = null;
+      rethrow;
     }
   }
 
