@@ -77,7 +77,6 @@ class DouyinSearchController extends BaseController {
 
   @override
   void onClose() {
-    webViewController?.clearAllCache();
     webViewController = null;
     super.onClose();
   }
