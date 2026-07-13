@@ -1,6 +1,12 @@
 name: app-build-action
 on:
   workflow_dispatch:
+    inputs:
+      build_android:
+        description: "Also build Android APKs"
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - "v*"
@@ -73,6 +79,7 @@ jobs:
             simple_live_app/build/dist/*/*.zip
 
   build-android:
+    if: github.event_name != 'workflow_dispatch' || inputs.build_android
     needs: build-windows
     runs-on: ubuntu-latest
     permissions:

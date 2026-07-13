@@ -35,22 +35,24 @@ class PageGridView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        EasyRefresh(
-          header: MaterialHeader(
-            completeDuration: const Duration(milliseconds: 400),
-          ),
-          footer: MaterialFooter(
-            completeDuration: const Duration(milliseconds: 400),
-          ),
-          scrollController: pageController.scrollController,
-          controller: pageController.easyRefreshController,
-          firstRefresh: firstRefresh,
-          onLoad: pageController.loadData,
-          onRefresh: pageController.refreshData,
-          child: Obx(
-            () => MasonryGridView.count(
+    // flutter_easyrefresh 2.x must receive the ScrollView directly.
+    // Keep Obx outside EasyRefresh so list updates do not become a nested viewport.
+    return Obx(
+      () => Stack(
+        children: [
+          EasyRefresh(
+            header: MaterialHeader(
+              completeDuration: const Duration(milliseconds: 400),
+            ),
+            footer: MaterialFooter(
+              completeDuration: const Duration(milliseconds: 400),
+            ),
+            scrollController: pageController.scrollController,
+            controller: pageController.easyRefreshController,
+            firstRefresh: firstRefresh,
+            onLoad: pageController.loadData,
+            onRefresh: pageController.refreshData,
+            child: MasonryGridView.count(
               padding: padding,
               itemCount: pageController.list.length,
               itemBuilder: itemBuilder,
@@ -59,14 +61,12 @@ class PageGridView extends StatelessWidget {
               mainAxisSpacing: mainAxisSpacing,
             ),
           ),
-        ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: // 加载更多按钮
-              Obx(
-            () => Visibility(
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: // 加载更多按钮
+                Visibility(
               visible: (Platform.isWindows ||
                       Platform.isLinux ||
                       Platform.isMacOS) &&
@@ -81,13 +81,11 @@ class PageGridView extends StatelessWidget {
               ),
             ),
           ),
-        ),
-        Positioned(
-          bottom: 12,
-          right: 12,
-          child: // 加载更多按钮
-              Obx(
-            () => Visibility(
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: // 加载更多按钮
+                Visibility(
               visible: (Platform.isWindows ||
                       Platform.isLinux ||
                       Platform.isMacOS) &&
@@ -109,32 +107,25 @@ class PageGridView extends StatelessWidget {
               ),
             ),
           ),
-        ),
-        Obx(
-          () => Offstage(
+          Offstage(
             offstage: !pageController.pageEmpty.value,
             child: AppEmptyWidget(
               onRefresh: () => pageController.refreshData(),
             ),
           ),
-        ),
-        Obx(
-          () => Offstage(
-            offstage:
-                !(showPageLoadding && pageController.pageLoadding.value),
+          Offstage(
+            offstage: !(showPageLoadding && pageController.pageLoadding.value),
             child: const AppLoaddingWidget(),
           ),
-        ),
-        Obx(
-          () => Offstage(
+          Offstage(
             offstage: !pageController.pageError.value,
             child: AppErrorWidget(
               errorMsg: pageController.errorMsg.value,
               onRefresh: () => pageController.refreshData(),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
