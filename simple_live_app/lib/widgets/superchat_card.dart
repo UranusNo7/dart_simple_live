@@ -22,7 +22,8 @@ class SuperChatCard extends StatefulWidget {
 }
 
 class _SuperChatCardState extends State<SuperChatCard> {
-  late StreamSubscription<int> _countdownSub;
+  StreamSubscription<int>? _countdownSub;
+  late ValueNotifier<int> _countdownNotifier;
   int _countdown = 0;
 
   int _resolveCountdown() {
@@ -38,15 +39,20 @@ class _SuperChatCardState extends State<SuperChatCard> {
   void initState() {
     super.initState();
     _countdown = _resolveCountdown();
+    _countdownNotifier = ValueNotifier(_countdown);
     if (_countdown <= 0 && widget.customCountdown == null) {
       return;
     }
+    _startCountdown();
+  }
+
+  void _startCountdown() {
     _countdownSub = Stream<int>.periodic(
       const Duration(seconds: 1),
       (tick) => _countdown - tick - 1,
     ).takeWhile((v) => v >= 0).listen(
       (v) {
-        if (mounted) setState(() => _countdown = v);
+        if (mounted) _countdownNotifier.value = v;
       },
       onDone: () {
         if (mounted) widget.onExpire?.call();
@@ -59,28 +65,16 @@ class _SuperChatCardState extends State<SuperChatCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message != widget.message ||
         oldWidget.customCountdown != widget.customCountdown) {
-      _countdownSub.cancel();
+      _countdownSub?.cancel();
       _countdown = _resolveCountdown();
+      _countdownNotifier.value = _countdown;
       if (_countdown <= 0 && widget.customCountdown == null) return;
-      _countdownSub = Stream<int>.periodic(
-        const Duration(seconds: 1),
-        (tick) => _countdown - tick - 1,
-      ).takeWhile((v) => v >= 0).listen(
-        (v) {
-          if (mounted) setState(() => _countdown = v);
-        },
-        onDone: () {
-          if (mounted) widget.onExpire?.call();
-        },
-      );
+      _startCountdown();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final displayCountdown = (widget.customCountdown ?? _countdown)
-        .clamp(0, 1 << 30)
-        .toInt();
     return ClipRRect(
       borderRadius: AppStyle.radius8,
       child: Container(
@@ -120,12 +114,21 @@ class _SuperChatCardState extends State<SuperChatCard> {
                       ],
                     ),
                   ),
-                  Text(
-                    "$displayCountdown",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _countdownNotifier,
+                    builder: (context, value, _) {
+                      final displayCountdown =
+                          (widget.customCountdown ?? value)
+                              .clamp(0, 1 << 30)
+                              .toInt();
+                      return Text(
+                        "$displayCountdown",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -149,7 +152,8 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
   @override
   void dispose() {
-    _countdownSub.cancel();
+    _countdownSub?.cancel();
+    _countdownNotifier.dispose();
     super.dispose();
   }
 }

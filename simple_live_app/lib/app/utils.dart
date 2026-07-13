@@ -273,6 +273,7 @@ class Utils {
       // barrierColor:
       //     Get.isDarkMode ? Colors.grey.withOpacity(.3) : Colors.black38,
     );
+    textEditingController.dispose();
     return result;
   }
 

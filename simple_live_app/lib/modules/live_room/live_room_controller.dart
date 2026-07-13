@@ -62,6 +62,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 滚动控制
   final ScrollController scrollController = ScrollController();
 
+  /// 是否已调度滚动到底部（避免重复注册 addPostFrameCallback）
+  bool _scrollScheduled = false;
+
   /// 聊天信息
   RxList<LiveMessage> messages = RxList<LiveMessage>();
 
@@ -207,25 +210,26 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 接收到WebSocket信息
   void onWSMessage(LiveMessage msg) {
     if (msg.type == LiveMessageType.chat) {
-      if (messages.length > kMaxMessagesSoftLimit && !disableAutoScroll.value) {
-        messages.removeAt(0);
-      } else if (messages.length > kMaxMessagesHardLimit) {
-        messages.removeAt(0);
+      if (messages.length > kMaxMessagesHardLimit) {
+        messages.removeRange(0, messages.length - kMaxMessagesSoftLimit);
       }
 
-      // 关键词屏蔽检查（使用预编译模式）
+      // 关键词屏蔽检查
       for (var pattern in AppSettingsController.instance.shieldPatterns) {
         if (msg.message.contains(pattern)) {
-          Log.d("已屏蔽消息内容：${msg.message}");
           return;
         }
       }
 
       messages.add(msg);
 
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => chatScrollToBottom(),
-      );
+      if (!_scrollScheduled) {
+        _scrollScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollScheduled = false;
+          chatScrollToBottom();
+        });
+      }
       if (!liveStatus.value || isBackground) {
         return;
       }

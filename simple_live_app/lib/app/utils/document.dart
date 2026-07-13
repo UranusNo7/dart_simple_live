@@ -8,7 +8,7 @@ extension DirectoryCleaner on Directory {
     // 首先判断是否为文件夹
     if (await exists() && await FileSystemEntity.isDirectory(path)) {
       // 列出文件夹中的所有文件和子文件夹
-      List<FileSystemEntity> files = listSync();
+      List<FileSystemEntity> files = await list().toList();
 
       // 遍历文件列表并删除每个文件或子文件夹
       for (FileSystemEntity file in files) {

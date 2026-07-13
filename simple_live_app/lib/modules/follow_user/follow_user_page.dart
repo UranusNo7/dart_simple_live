@@ -266,7 +266,7 @@ class FollowUserPage extends GetView<FollowUserController> {
           ],
         ),
       ),
-    );
+    ).then((_) => scrollController.dispose());
   }
 
   void showTagsManager() {
@@ -393,6 +393,6 @@ class FollowUserPage extends GetView<FollowUserController> {
           ),
         ),
       ),
-    );
+    ).then((_) => tagEditController.dispose());
   }
 }

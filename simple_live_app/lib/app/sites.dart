@@ -30,10 +30,16 @@ class Sites {
     ),
   };
 
+  static List<Site>? _supportSitesCache;
+
   static List<Site> get supportSites {
-    return AppSettingsController.instance.siteSort
+    return _supportSitesCache ??= AppSettingsController.instance.siteSort
         .map((key) => allSites[key]!)
         .toList();
+  }
+
+  static void invalidateSupportSitesCache() {
+    _supportSitesCache = null;
   }
 }
 

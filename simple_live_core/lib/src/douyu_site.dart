@@ -28,6 +28,8 @@ class DouyuSite implements LiveSite {
   @override
   LiveDanmaku getDanmaku() => DouyuDanmaku();
 
+  static final HtmlUnescape _htmlUnescape = HtmlUnescape();
+
   @override
   Future<List<LiveCategory>> getCategores() async {
     List<LiveCategory> categories = [];
@@ -35,11 +37,15 @@ class DouyuSite implements LiveSite {
       "https://m.douyu.com/api/cate/list",
     );
     var subCateList = result["data"]["cate2Info"] as List;
+    var subCateMap = <dynamic, List<dynamic>>{};
+    for (var subItem in subCateList) {
+      subCateMap.putIfAbsent(subItem["cate1Id"], () => []).add(subItem);
+    }
     for (var item in result["data"]["cate1Info"]) {
       var cate1Id = item["cate1Id"];
       var cate1Name = item["cate1Name"];
       List<LiveSubCategory> subCategories = [];
-      subCateList.where((x) => x["cate1Id"] == cate1Id).forEach((element) {
+      for (var element in subCateMap[cate1Id] ?? []) {
         subCategories.add(
           LiveSubCategory(
             pic: element["icon"],
@@ -48,7 +54,7 @@ class DouyuSite implements LiveSite {
             name: element["cate2Name"].toString(),
           ),
         );
-      });
+      }
       categories.add(
         LiveCategory(
           id: cate1Id.toString(),
@@ -138,13 +144,10 @@ class DouyuSite implements LiveSite {
     var args = detail.data.toString();
     var data = quality.data as DouyuPlayData;
 
-    List<String> urls = [];
-    for (var item in data.cdns) {
-      var url = await getPlayUrl(detail.roomId, args, data.rate, item);
-      if (url.isNotEmpty) {
-        urls.add(url);
-      }
-    }
+    var results = await Future.wait(
+      data.cdns.map((cdn) => getPlayUrl(detail.roomId, args, data.rate, cdn)),
+    );
+    var urls = results.where((url) => url.isNotEmpty).toList();
     return LivePlayUrl(urls: urls);
   }
 
@@ -166,7 +169,7 @@ class DouyuSite implements LiveSite {
       formUrlEncoded: true,
     );
 
-    return "${result["data"]["rtmp_url"]}/${HtmlUnescape().convert(result["data"]["rtmp_live"].toString())}";
+    return "${result["data"]["rtmp_url"]}/${_htmlUnescape.convert(result["data"]["rtmp_live"].toString())}";
   }
 
   @override
@@ -219,24 +222,6 @@ class DouyuSite implements LiveSite {
       },
     );
     var crptext = json.decode(jsEncResult)["data"]["room$roomId"].toString();
-
-    if (showTime != null && showTime.isNotEmpty) {
-      try {
-        int startTimeStamp = int.parse(showTime);
-        int currentTimeStamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-        int durationInSeconds = currentTimeStamp - startTimeStamp;
-
-        int hours = durationInSeconds ~/ 3600;
-        int minutes = (durationInSeconds % 3600) ~/ 60;
-        int seconds = durationInSeconds % 60;
-
-        String formattedDuration =
-            '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-        print('斗鱼直播间 $roomId 开播时长: $formattedDuration');
-      } catch (e) {
-        print('计算开播时长出错: $e');
-      }
-    }
 
     return LiveRoomDetail(
       cover: roomInfo["room_pic"].toString(),

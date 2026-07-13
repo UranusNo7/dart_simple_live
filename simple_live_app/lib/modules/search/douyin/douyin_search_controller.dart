@@ -74,4 +74,11 @@ class DouyinSearchController extends BaseController {
     launchUrlString(searchUrl);
     Get.offAndToNamed(RoutePath.kTools);
   }
+
+  @override
+  void onClose() {
+    webViewController?.clearAllCache();
+    webViewController = null;
+    super.onClose();
+  }
 }

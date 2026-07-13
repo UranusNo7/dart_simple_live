@@ -42,6 +42,9 @@ class BiliBiliDanmaku implements LiveDanmaku {
   @override
   int heartbeatTime = 60 * 1000;
 
+  static final RegExp _splitRegex =
+      RegExp(r"[\x00-\x1f]+", unicode: true, multiLine: true);
+
   @override
   Function(LiveMessage msg)? onMessage;
   @override
@@ -150,7 +153,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
       //操作类型。3=心跳回应，内容为房间人气值；5=通知，弹幕、广播等全部信息；8=进房回应，空
       int operation = readInt(data, 8, 4);
       //内容
-      var body = data.skip(16).toList();
+        var body = data.sublist(16);
       if (operation == 3) {
         var online = readInt(body, 0, 4);
 
@@ -172,8 +175,7 @@ class BiliBiliDanmaku implements LiveDanmaku {
 
         var text = utf8.decode(body, allowMalformed: true);
 
-        var group =
-            text.split(RegExp(r"[\x00-\x1f]+", unicode: true, multiLine: true));
+        var group = text.split(_splitRegex);
         for (var item
             in group.where((x) => x.length > 2 && x.startsWith('{'))) {
           parseMessage(item);
@@ -239,25 +241,20 @@ class BiliBiliDanmaku implements LiveDanmaku {
   }
 
   int readInt(List<int> buffer, int start, int len) {
-    var bytes =
-        Uint8List.fromList(buffer.getRange(start, start + len).toList());
-    var byteBuffer = bytes.buffer;
-    var data = ByteData.view(byteBuffer);
-    var result = 0;
-
+    var uint8Buffer = buffer is Uint8List ? buffer : Uint8List.fromList(buffer);
+    var data = ByteData.sublistView(uint8Buffer, start, start + len);
     if (len == 1) {
-      result = data.getUint8(0);
+      return data.getUint8(0);
     }
     if (len == 2) {
-      result = data.getInt16(0, Endian.big);
+      return data.getInt16(0, Endian.big);
     }
     if (len == 4) {
-      result = data.getInt32(0, Endian.big);
+      return data.getInt32(0, Endian.big);
     }
     if (len == 8) {
-      result = data.getInt64(0, Endian.big);
+      return data.getInt64(0, Endian.big);
     }
-
-    return result;
+    return 0;
   }
 }

@@ -36,6 +36,9 @@ class Log {
     }
     try {
       debugLogs.insert(0, DebugLogModel(DateTime.now(), content, color: color));
+      if (debugLogs.length > 500) {
+        debugLogs.removeLast();
+      }
     } catch (e) {
       if (kDebugMode) {
         print(e);
@@ -104,6 +107,7 @@ class Log {
 
 class LogFileWriter {
   late String fileName;
+  final List<String> _pendingLogs = [];
   LogFileWriter() {
     var dt = DateFormat("yyyy-MM-dd HH-mm-ss").format(DateTime.now());
     fileName = "$dt.log";
@@ -118,10 +122,19 @@ class LogFileWriter {
     }
     var logFile = File("${logDir.path}/$fileName");
     fileWriter = logFile.openWrite(mode: FileMode.append);
+    for (var log in _pendingLogs) {
+      fileWriter?.write(log);
+      fileWriter?.write("\r\n");
+    }
+    _pendingLogs.clear();
     writeSystemInfo();
   }
 
   void write(String content) {
+    if (fileWriter == null) {
+      _pendingLogs.add(content);
+      return;
+    }
     fileWriter?.write(content);
     fileWriter?.write("\r\n");
   }

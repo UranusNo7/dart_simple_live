@@ -33,8 +33,6 @@ class DouyinSite implements LiveSite {
   String cookie = "";
 
   void _logDebug(String msg) {
-    // 同时使用 print 和 CoreLog 确保日志输出
-    print("[Douyin] $msg");
     CoreLog.d("[Douyin] $msg");
   }
 
@@ -44,24 +42,13 @@ class DouyinSite implements LiveSite {
     "User-Agent": kDefaultUserAgent,
   };
 
-  Future<Map<String, dynamic>> getRequestHeaders() async {
-    try {
-      // 如果用户已设置 cookie，直接使用用户的 cookie
-      if (cookie.isNotEmpty) {
-        headers["cookie"] = cookie;
-        return headers;
-      }
-
-      // 使用默认的 ttwid cookie（只需要 ttwid 即可获取所有画质）
-      headers["cookie"] = kDefaultCookie;
-      return headers;
-    } catch (e) {
-      CoreLog.error(e);
-      if (!(headers["cookie"]?.toString().isNotEmpty ?? false)) {
-        headers["cookie"] = kDefaultCookie;
-      }
-      return headers;
-    }
+  Map<String, dynamic> getRequestHeaders() {
+    return {
+      "Authority": kDefaultAuthority,
+      "Referer": kDefaultReferer,
+      "User-Agent": kDefaultUserAgent,
+      "cookie": cookie.isNotEmpty ? cookie : kDefaultCookie,
+    };
   }
 
   @override

@@ -32,6 +32,8 @@ class BiliBiliSite implements LiveSite {
   static const String kDefaultUserAgent =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0";
   static const String kDefaultReferer = "https://live.bilibili.com/";
+  static final RegExp _emTagRegex = RegExp(r"<.*?em.*?>");
+  static final RegExp _filterCharsRegex = RegExp(r"[!'()*]");
 
   String buvid3 = "";
   String buvid4 = "";
@@ -188,11 +190,10 @@ class BiliBiliSite implements LiveSite {
     }
     // 对链接进行排序，包含mcdn的在后
     urls.sort((a, b) {
-      if (a.contains("mcdn")) {
-        return 1;
-      } else {
-        return -1;
-      }
+      var aMcdn = a.contains("mcdn");
+      var bMcdn = b.contains("mcdn");
+      if (aMcdn == bMcdn) return 0;
+      return aMcdn ? 1 : -1;
     });
     return LivePlayUrl(
       urls: urls,
@@ -256,28 +257,6 @@ class BiliBiliSite implements LiveSite {
     String? liveStartTime =
         roomInfo["room_info"]?["live_start_time"]?.toString();
 
-    // 计算开播时长并打印到控制台 (参考斗鱼的实现)
-    if (liveStartTime != null &&
-        liveStartTime.isNotEmpty &&
-        liveStartTime != "0") {
-      // 检查是否为0，0可能表示未开播或无此信息
-      try {
-        int startTimeStamp = int.parse(liveStartTime);
-        int currentTimeStamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-        int durationInSeconds = currentTimeStamp - startTimeStamp;
-
-        int hours = durationInSeconds ~/ 3600;
-        int minutes = (durationInSeconds % 3600) ~/ 60;
-        int seconds = durationInSeconds % 60;
-
-        String formattedDuration =
-            '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-        print('Bilibili直播间 $roomId 开播时长: $formattedDuration');
-      } catch (e) {
-        print('计算 Bilibili 开播时长出错: $e');
-      }
-    }
-
     return LiveRoomDetail(
       roomId: realRoomId,
       title: roomInfo["room_info"]["title"].toString(),
@@ -312,7 +291,6 @@ class BiliBiliSite implements LiveSite {
       queryParameters: queryParams,
       header: await getHeader(),
     );
-    print("【B站接口返回】roomId=$roomId, result=$result");
     return result["data"];
   }
 
@@ -338,7 +316,7 @@ class BiliBiliSite implements LiveSite {
     for (var item in result["data"]["result"]["live_room"] ?? []) {
       var title = item["title"].toString();
       //移除title中的<em></em>标签
-      title = title.replaceAll(RegExp(r"<.*?em.*?>"), "");
+      title = title.replaceAll(_emTagRegex, "");
       var roomItem = LiveRoomItem(
         roomId: item["roomid"].toString(),
         title: title,
@@ -373,7 +351,7 @@ class BiliBiliSite implements LiveSite {
     for (var item in result["data"]["result"] ?? []) {
       var uname = item["uname"].toString();
       //移除title中的<em></em>标签
-      uname = uname.replaceAll(RegExp(r"<.*?em.*?>"), "");
+      uname = uname.replaceAll(_emTagRegex, "");
       var anchorItem = LiveAnchorItem(
         roomId: item["roomid"].toString(),
         avatar: "https:${item["uface"]}@400w.jpg",
@@ -554,7 +532,11 @@ class BiliBiliSite implements LiveSite {
 
   String getMixinKey(String origin) {
     // 对 imgKey 和 subKey 进行字符顺序打乱编码
-    return mixinKeyEncTab.fold("", (s, i) => s + origin[i]).substring(0, 32);
+    var buffer = StringBuffer();
+    for (var i in mixinKeyEncTab) {
+      buffer.write(origin[i]);
+    }
+    return buffer.toString().substring(0, 32);
   }
 
   Future<Map<String, String>> getWbiSign(String url) async {
@@ -574,11 +556,7 @@ class BiliBiliSite implements LiveSite {
     for (var key in sortedKeys) {
       var value = queryParams[key]!;
       // 过滤 value 中的 "!'()*" 字符
-      map[key] = value
-          .toString()
-          .split('')
-          .where((c) => "!'()*".contains(c) == false)
-          .join('');
+      map[key] = value.toString().replaceAll(_filterCharsRegex, '');
     }
 
     var query = map.keys

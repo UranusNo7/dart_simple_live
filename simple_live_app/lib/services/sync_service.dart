@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -25,6 +26,7 @@ class SyncService extends GetxService {
   static SyncService get instance => Get.find<SyncService>();
 
   UDP? udp;
+  StreamSubscription<Datagram?>? _udpSubscription;
   RxList<SyncClinet> scanClients = <SyncClinet>[].obs;
   static const int udpPort = 23235;
   static const int httpPort = 23234;
@@ -49,43 +51,48 @@ class SyncService extends GetxService {
   /// 监听其他端UDP广播的回复
   void listenUDP() async {
     udp = await UDP.bind(Endpoint.any(port: const Port(udpPort)));
-    udp!.asStream().listen(listenUdp);
+    _udpSubscription = udp!.asStream().listen(listenUdp);
   }
 
   void listenUdp(Datagram? datagram) {
-    var str = String.fromCharCodes(datagram!.data);
+    if (datagram == null) return;
+    var str = String.fromCharCodes(datagram.data);
     Log.i("Received: $str from ${datagram.address}:${datagram.port}");
-    if (str.startsWith('{') && str.endsWith('}')) {
-      var data = json.decode(str);
-      //如果是自己的广播，就不处理
-      if (data['id'] == deviceId) {
-        return;
-      }
-      //处理Hello的广播
-      if (data["type"] == "hello") {
-        //如果http服务已经启动，就回复自己的信息
-        if (httpRunning.value) {
-          sendInfo();
+    try {
+      if (str.startsWith('{') && str.endsWith('}')) {
+        var data = json.decode(str);
+        //如果是自己的广播，就不处理
+        if (data['id'] == deviceId) {
+          return;
         }
-        return;
+        //处理Hello的广播
+        if (data["type"] == "hello") {
+          //如果http服务已经启动，就回复自己的信息
+          if (httpRunning.value) {
+            sendInfo();
+          }
+          return;
+        }
+        // 处理其他端的广播
+        // 地址直接从datagram中获取，能收到回复说明地址是可以连通的
+        var address = datagram.address.address;
+        //检查是否已经存在
+        var index =
+            scanClients.indexWhere((element) => element.address == address);
+        if (index == -1) {
+          scanClients.add(
+            SyncClinet(
+              id: data['id'],
+              name: data['name'],
+              address: address,
+              port: httpPort,
+              type: data['type'],
+            ),
+          );
+        }
       }
-      // 处理其他端的广播
-      // 地址直接从datagram中获取，能收到回复说明地址是可以连通的
-      var address = datagram.address.address;
-      //检查是否已经存在
-      var index =
-          scanClients.indexWhere((element) => element.address == address);
-      if (index == -1) {
-        scanClients.add(
-          SyncClinet(
-            id: data['id'],
-            name: data['name'],
-            address: address,
-            port: httpPort,
-            type: data['type'],
-          ),
-        );
-      }
+    } catch (e) {
+      Log.logPrint(e);
     }
   }
 
@@ -204,6 +211,7 @@ class SyncService extends GetxService {
         httpPort,
       );
 
+      this.server = server;
       // Enable content compression
       server.autoCompress = true;
 
@@ -406,6 +414,7 @@ class SyncService extends GetxService {
   @override
   void onClose() {
     Log.d('SyncService close');
+    _udpSubscription?.cancel();
     udp?.close();
     server?.close(force: true);
     super.onClose();

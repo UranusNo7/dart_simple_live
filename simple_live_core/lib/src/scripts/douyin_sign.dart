@@ -10703,10 +10703,13 @@ function getMSSDKSignature(msStub, userAgent) {
       var signature = flutterJs.eval(
         "getMSSDKSignature('$msStub','$defaultUserAgent')",
       ).toString();
-      while (signature.contains('-') || signature.contains('=')) {
+      var retryCount = 0;
+      while ((signature.contains('-') || signature.contains('=')) &&
+          retryCount < 10) {
         signature = flutterJs.eval(
           "getMSSDKSignature('$msStub','$defaultUserAgent')",
         ).toString();
+        retryCount++;
       }
       return signature;
     } catch (_) {

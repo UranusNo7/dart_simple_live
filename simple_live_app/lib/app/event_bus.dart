@@ -33,4 +33,12 @@ class EventBus {
     }
     return _streams[name]!.stream.listen(onData);
   }
+
+  /// 释放所有资源
+  void dispose() {
+    for (var controller in _streams.values) {
+      controller.close();
+    }
+    _streams.clear();
+  }
 }

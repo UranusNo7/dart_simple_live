@@ -19,6 +19,8 @@ class HuyaSite implements LiveSite {
   static const String HYSDK_UA =
       "HYSDK(Windows, 30000002)_APP(pc_exe&7060000&official)_SDK(trans&2.32.3.5646)";
 
+  static final Random _random = Random();
+
   static Map<String, String> requestHeaders =  {
       'Origin': baseUrl,
       'Referer': baseUrl,
@@ -47,9 +49,11 @@ class HuyaSite implements LiveSite {
       LiveCategory(id: "3", name: "手游", children: []),
     ];
 
-    for (var item in categories) {
-      var items = await getSubCategores(item.id);
-      item.children.addAll(items);
+    var subResults = await Future.wait(
+      categories.map((item) => getSubCategores(item.id)),
+    );
+    for (var i = 0; i < categories.length; i++) {
+      categories[i].children.addAll(subResults[i]);
     }
     return categories;
   }
@@ -101,7 +105,7 @@ class HuyaSite implements LiveSite {
         "page": page
       },
     );
-    var result = json.decode(resultText);
+    var result = resultText is String ? json.decode(resultText) : resultText;
     var items = <LiveRoomItem>[];
     for (var item in result["data"]["datas"]) {
       var cover = item["screenshot"].toString();
@@ -200,7 +204,7 @@ class HuyaSite implements LiveSite {
           "ts": DateTime.now().millisecondsSinceEpoch,
         },
       );
-      playUserAgent = json.decode(result)['huya']['user_agent'];
+      playUserAgent = (result is String ? json.decode(result) : result)['huya']['user_agent'];
     } catch (e) {
       CoreLog.error(e);
     }
@@ -212,11 +216,14 @@ class HuyaSite implements LiveSite {
       {required LiveRoomDetail detail,
       required LivePlayQuality quality}) async {
     var ls = <String>[];
-    for (var element in quality.data["urls"]) {
-      var line = element as HuyaLineModel;
-      var url = await getPlayUrl(line, quality.data["bitRate"]);
-      ls.add(url);
-    }
+    var lines = quality.data["urls"] as List;
+    var urls = await Future.wait(
+      lines.map((element) {
+        var line = element as HuyaLineModel;
+        return getPlayUrl(line, quality.data["bitRate"]);
+      }),
+    );
+    ls.addAll(urls);
     // 最新UA需要额外验证，此方法暂时弃用
     // var ua = await getHuYaUA();
     return LivePlayUrl(
@@ -268,7 +275,7 @@ class HuyaSite implements LiveSite {
 
     final wsSecret = md5.convert(utf8.encode(secretStr)).toString();
 
-    final rnd = Random();
+    final rnd = _random;
     final ct =
         ((int.parse(wsTime, radix: 16) + rnd.nextDouble()) * 1000).toInt();
     final uuid = (((ct % 1e10) + rnd.nextDouble()) * 1e3 % 0xffffffff)
@@ -319,7 +326,7 @@ class HuyaSite implements LiveSite {
         "page": page
       },
     );
-    var result = json.decode(resultText);
+    var result = resultText is String ? json.decode(resultText) : resultText;
     var items = <LiveRoomItem>[];
     for (var item in result["data"]["datas"]) {
       var cover = item["screenshot"].toString();
@@ -513,7 +520,7 @@ class HuyaSite implements LiveSite {
         "start": (page - 1) * 20,
       },
     );
-    var result = json.decode(resultText);
+    var result = resultText is String ? json.decode(resultText) : resultText;
     var items = <LiveRoomItem>[];
     for (var item in result["response"]["3"]["docs"]) {
       var cover = item["game_screenshot"].toString();
@@ -556,7 +563,7 @@ class HuyaSite implements LiveSite {
         "start": (page - 1) * 20,
       },
     );
-    var result = json.decode(resultText);
+    var result = resultText is String ? json.decode(resultText) : resultText;
     var items = <LiveAnchorItem>[];
     for (var item in result["response"]["1"]["docs"]) {
       var anchorItem = LiveAnchorItem(
@@ -605,7 +612,7 @@ class HuyaSite implements LiveSite {
 
   String getUUid() {
     var currentTime = DateTime.now().millisecondsSinceEpoch;
-    var randomValue = Random().nextInt(4294967295);
+    var randomValue = _random.nextInt(4294967295);
     var result = (currentTime % 10000000000 * 1000 + randomValue) % 4294967295;
     return result.toString();
   }
@@ -616,14 +623,14 @@ class HuyaSite implements LiveSite {
     var o = List.filled(36, '');
     if (t != null) {
       for (var i = 0; i < t; i++) {
-        o[i] = n[Random().nextInt(e ?? n.length)];
+        o[i] = n[_random.nextInt(e ?? n.length)];
       }
     } else {
       o[8] = o[13] = o[18] = o[23] = "-";
       o[14] = "4";
       for (var i = 0; i < 36; i++) {
         if (o[i].isEmpty) {
-          var r = Random().nextInt(16);
+          var r = _random.nextInt(16);
           o[i] = n[19 == i ? 3 & r | 8 : r];
         }
       }

@@ -259,23 +259,7 @@ class MyApp extends StatelessWidget {
                       },
                     ),
                   },
-                  child: KeyboardListener(
-                    focusNode: FocusNode(),
-                    onKeyEvent: (KeyEvent event) async {
-                      if (event is KeyDownEvent &&
-                          event.logicalKey == LogicalKeyboardKey.escape) {
-                        // ESC退出全屏
-                        // 如果处于全屏状态，退出全屏
-                        if (!Platform.isAndroid && !Platform.isIOS) {
-                          if (await windowManager.isFullScreen()) {
-                            await windowManager.setFullScreen(false);
-                            return;
-                          }
-                        }
-                      }
-                    },
-                    child: child!,
-                  ),
+                  child: _EscapeKeyboardListener(child: child!),
                 ),
 
                 //查看DEBUG日志按钮
@@ -305,5 +289,42 @@ class MyApp extends StatelessWidget {
         ),
       );
     }));
+  }
+}
+
+class _EscapeKeyboardListener extends StatefulWidget {
+  final Widget child;
+  const _EscapeKeyboardListener({required this.child});
+
+  @override
+  State<_EscapeKeyboardListener> createState() => _EscapeKeyboardListenerState();
+}
+
+class _EscapeKeyboardListenerState extends State<_EscapeKeyboardListener> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: (KeyEvent event) async {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
+          if (!Platform.isAndroid && !Platform.isIOS) {
+            if (await windowManager.isFullScreen()) {
+              await windowManager.setFullScreen(false);
+              return;
+            }
+          }
+        }
+      },
+      child: widget.child,
+    );
   }
 }

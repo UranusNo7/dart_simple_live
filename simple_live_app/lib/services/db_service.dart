@@ -51,8 +51,8 @@ class DBService extends GetxService {
   // 添加标签
   Future<FollowUserTag> addFollowTag(String tag) async {
     // 限制标签唯一且长度不超过8个字符
-    if (getFollowTagExistByTag(tag) && tag.length > 8) {
-      return getFollowTag(tag)!;
+    if (getFollowTagExistByTag(tag) || tag.length > 8) {
+      return getFollowTag(tag) ?? FollowUserTag(id: "", tag: tag, userId: []);
     }
     final String uniqueId = uuid.v4();
     final followUserTag = FollowUserTag(id: uniqueId, tag: tag, userId: []);
@@ -95,8 +95,11 @@ class DBService extends GetxService {
   static const int kMaxHistoryCount = 500;
   static const int kTrimTriggerThreshold = 50;
 
+  List<History>? _historyCache;
+
   Future addOrUpdateHistory(History history) async {
     await historyBox.put(history.id, history);
+    _historyCache = null;
     if (historyBox.length > kMaxHistoryCount + kTrimTriggerThreshold) {
       _trimHistory();
     }
@@ -108,14 +111,19 @@ class DBService extends GetxService {
     final toRemove = all.take(all.length - kMaxHistoryCount);
     final ids = toRemove.map((e) => e.id).toList();
     historyBox.deleteAll(ids);
+    _historyCache = null;
   }
 
   List<History> getHistores({int? limit}) {
-    var his = historyBox.values.toList();
-    his.sort((a, b) => b.updateTime.compareTo(a.updateTime));
-    if (limit != null && his.length > limit) {
-      his = his.sublist(0, limit);
+    var his = _historyCache;
+    if (his == null) {
+      his = historyBox.values.toList();
+      his.sort((a, b) => b.updateTime.compareTo(a.updateTime));
+      _historyCache = his;
     }
-    return his;
+    if (limit != null && his.length > limit) {
+      return his.sublist(0, limit);
+    }
+    return List.from(his);
   }
 }

@@ -428,6 +428,7 @@ class AppSettingsController extends GetxController {
   RxList<String> siteSort = RxList<String>();
   void setSiteSort(List<String> e) {
     siteSort.value = e;
+    Sites.invalidateSupportSitesCache();
     LocalStorageService.instance.setValue(
       LocalStorageService.kSiteSort,
       siteSort.join(","),
@@ -495,6 +496,11 @@ class AppSettingsController extends GetxController {
   void setLogEnable(bool e) {
     logEnable.value = e;
     LocalStorageService.instance.setValue(LocalStorageService.kLogEnable, e);
+    if (e) {
+      Log.initWriter();
+    } else {
+      Log.disposeWriter();
+    }
   }
 
   var customPlayerOutput = false.obs;

@@ -258,8 +258,17 @@ class FollowService extends GetxService {
 
   void filterData() {
     followList.sort((a, b) => b.liveStatus.value.compareTo(a.liveStatus.value));
-    liveList.assignAll(followList.where((x) => x.liveStatus.value == 2));
-    notLiveList.assignAll(followList.where((x) => x.liveStatus.value == 1));
+    var live = <FollowUser>[];
+    var notLive = <FollowUser>[];
+    for (var item in followList) {
+      if (item.liveStatus.value == 2) {
+        live.add(item);
+      } else if (item.liveStatus.value == 1) {
+        notLive.add(item);
+      }
+    }
+    liveList.assignAll(live);
+    notLiveList.assignAll(notLive);
     _updatedListController.add(0);
   }
 

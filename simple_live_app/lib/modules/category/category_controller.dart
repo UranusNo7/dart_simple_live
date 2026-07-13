@@ -45,6 +45,9 @@ class CategoryController extends GetxController
   void onClose() {
     streamSubscription?.cancel();
     tabController.dispose();
+    for (var site in Sites.supportSites) {
+      Get.delete<CategoryListController>(tag: site.id);
+    }
     super.onClose();
   }
 }

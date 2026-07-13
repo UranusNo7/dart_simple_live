@@ -13,19 +13,18 @@ class AppSearchController extends GetxController
 
   var searchMode = 0.obs;
 
+  void Function()? _animationListener;
+
   AppSearchController() {
     tabController =
         TabController(length: Sites.supportSites.length, vsync: this);
-    tabController.animation?.addListener(() {
+    _animationListener = () {
       var currentIndex = (tabController.animation?.value ?? 0).round();
       if (index == currentIndex) {
         return;
       }
 
       index = currentIndex;
-      // if (Sites.supportSites[index].id == Constant.kDouyin) {
-      //   return;
-      // }
 
       var controller =
           Get.find<SearchListController>(tag: Sites.supportSites[index].id);
@@ -35,7 +34,8 @@ class AppSearchController extends GetxController
           controller.keyword.isNotEmpty) {
         controller.refreshData();
       }
-    });
+    };
+    tabController.animation?.addListener(_animationListener!);
   }
 
   StreamSubscription<dynamic>? streamSubscription;
@@ -85,7 +85,13 @@ class AppSearchController extends GetxController
   @override
   void onClose() {
     streamSubscription?.cancel();
+    if (_animationListener != null) {
+      tabController.animation?.removeListener(_animationListener!);
+    }
     tabController.dispose();
+    for (var site in Sites.supportSites) {
+      Get.delete<SearchListController>(tag: site.id);
+    }
     super.onClose();
   }
 }

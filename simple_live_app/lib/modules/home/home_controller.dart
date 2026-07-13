@@ -52,6 +52,9 @@ class HomeController extends GetxController
   void onClose() {
     streamSubscription?.cancel();
     tabController.dispose();
+    for (var site in Sites.supportSites) {
+      Get.delete<HomeListController>(tag: site.id);
+    }
     super.onClose();
   }
 }

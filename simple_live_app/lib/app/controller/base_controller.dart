@@ -97,7 +97,6 @@ class BasePageController<T> extends BaseController {
       var result = pageData.items;
       //是否可以加载更多
       if (result.isNotEmpty) {
-        currentPage++;
         canLoadMore.value = pageData.hasMore;
         pageEmpty.value = false;
       } else {
@@ -111,6 +110,9 @@ class BasePageController<T> extends BaseController {
         list.value = result;
       } else {
         list.addAll(result);
+      }
+      if (result.isNotEmpty) {
+        currentPage++;
       }
     } catch (e) {
       handleError(e, showPageError: currentPage == 1);
