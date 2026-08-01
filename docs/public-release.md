@@ -12,7 +12,7 @@ or maintainer contact data into the current source tree.
   package identifiers remain. They provide required attribution and preserve
   installed-app update compatibility.
 
-Git commit metadata is separate from source files. The existing history still
-contains historical contributor names and email addresses; rewriting that
-history requires an explicit approval because it changes every commit, tag, and
-release reference.
+Git commit metadata is separate from source files. The 33 commits created for
+this fork use the GitHub noreply address for `UranusNo7`. Historical contributor
+metadata inherited from the public upstream project remains unchanged to retain
+authorship and ancestry.
