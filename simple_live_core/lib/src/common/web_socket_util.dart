@@ -17,6 +17,9 @@ class WebScoketUtils {
   /// 备用链接
   final String? backupUrl;
 
+  /// 首次连接失败后是否继续重连
+  final bool reconnectOnConnectFailure;
+
   /// 心跳时间
   final int heartBeatTime;
 
@@ -47,6 +50,7 @@ class WebScoketUtils {
     this.onHeartBeat,
     this.headers,
     this.backupUrl,
+    this.reconnectOnConnectFailure = false,
   });
   IOWebSocketChannel? webSocket;
   Timer? heartBeatTimer;
@@ -81,6 +85,10 @@ class WebScoketUtils {
         return;
       }
       onError(e, e);
+      if (reconnectOnConnectFailure) {
+        onReconnect?.call();
+        reconnect();
+      }
     }
   }
 

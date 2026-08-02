@@ -26,6 +26,7 @@ class DouyuDanmaku implements LiveDanmaku {
     webScoketUtils = WebScoketUtils(
       url: serverUrl,
       heartBeatTime: heartbeatTime,
+      reconnectOnConnectFailure: true,
       onMessage: (e) {
         decodeMessage(e);
       },

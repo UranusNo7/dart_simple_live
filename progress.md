@@ -58,3 +58,28 @@
 - Full rollback bundle: `D:\python_code\dart_simple_live-history-backup-20260802-003723.bundle`.
 - Visibility rollback: `gh repo edit UranusNo7/dart_simple_live --visibility private --accept-visibility-change-consequences`.
 - History rollback must be performed only after making the repository private: force-push `master` and tags from the verified mirror, or restore from the verified bundle. Deleted Actions runs cannot be restored.
+
+## 2026-08-02 - Task: Add automatic reconnect for Douyu danmaku startup failures
+
+### What was done
+
+- Added a default-off initial connection failure retry option to the shared WebSocket utility and enabled it only for Douyu danmaku connections.
+- Reused the existing five-second reconnect interval and reconnect limit instead of adding a second retry mechanism.
+- Added deterministic local WebSocket regression coverage for recovery after two rejected handshakes and for cancelling retries when leaving the live room.
+- Documented the Douyu-specific reconnect behavior and lifecycle boundary.
+
+### Testing
+
+- Before the fix, `dart test test/douyu_danmaku_reconnect_test.dart --reporter expanded` failed because no third connection was attempted after two HTTP 503 handshake responses.
+- After the fix, the same command passed both tests in 11 seconds: recovery succeeded on the third request, and `stop()` prevented any request after the pending five-second retry interval.
+- `dart analyze` completed with no new diagnostics. It remains exit code 1 because of 21 existing diagnostics in unrelated files: 2 warnings and 19 info-level items.
+- `git diff --check` passed.
+
+### Notes
+
+- `simple_live_core/lib/src/common/web_socket_util.dart`: added the default-off retry-on-initial-connect-failure option and routed opted-in failures into the existing reconnect cycle.
+- `simple_live_core/lib/src/danmaku/douyu_danmaku.dart`: enabled initial connection failure retries for Douyu only.
+- `simple_live_core/test/douyu_danmaku_reconnect_test.dart`: covers delayed recovery and retry cancellation using a local WebSocket server.
+- `docs/douyu-danmaku-reconnect.md`: documents retry scope, interval, limit, and shutdown behavior.
+- `progress.md`: records implementation, verification, changed files, and rollback instructions.
+- Rollback point: commit `c71f3645017d9003cc07becd8113107d09e8cf82`; after this task is committed, revert the new commit with `git revert <new-commit>`.
