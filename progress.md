@@ -83,3 +83,28 @@
 - `docs/douyu-danmaku-reconnect.md`: documents retry scope, interval, limit, and shutdown behavior.
 - `progress.md`: records implementation, verification, changed files, and rollback instructions.
 - Rollback point: commit `c71f3645017d9003cc07becd8113107d09e8cf82`; after this task is committed, revert the new commit with `git revert <new-commit>`.
+
+## 2026-08-02 - Task: Build and publish v1.11.7-fix with GitHub Actions
+
+### What was done
+
+- Created annotated tag `v1.11.7-fix` at Douyu reconnect commit `c9b8445ef6a4542b441850f060666ff5849e90f3` using the generic noreply identity.
+- Triggered the tag-based `app-build-action` workflow and monitored run `30736455813` through both jobs.
+- Published GitHub Release `v1.11.7-fix` with a Windows ZIP and three split-ABI Android APKs.
+
+### Testing
+
+- GitHub Actions run `30736455813` completed successfully: `build-windows` passed in 10m41s and `build-android` passed in 10m42s.
+- Verified Release `363720956` is the repository's latest release and is neither a draft nor a prerelease.
+- Verified all four assets report `state=uploaded` and public download URLs return valid HTTP 302 redirects; the public release page returns HTTP 200.
+- `app-arm64-v8a-release.apk`: 40,447,680 bytes, SHA-256 `6248490fad36ffdcd8b6424cfc3fbabeb518da447aa5c3d58ba335421ace777e`.
+- `app-armeabi-v7a-release.apk`: 38,153,376 bytes, SHA-256 `e6df6308eb1c94939f1fa050bcb55c7f8c6bbe9674000be8f17f308735f32a32`.
+- `app-x86_64-release.apk`: 45,418,026 bytes, SHA-256 `c2414a50f313c2e7b960e8ca8f1b397a9d40e4aaa764ed7ffa0da6bd4c93c69a`.
+- `simple_live_app-v1.11.7-fix-windows.zip`: 37,324,082 bytes, SHA-256 `316d4b38dfdbbc8cec1c25b590bd58bc60d6532ccfd4dc66436af28d409ab2f0`.
+- Full local re-download and independent digest calculation were not completed because the GitHub asset connection was too slow; the arm64 download transferred about 9.6 MB before the verification download was stopped. Sizes and digests above are GitHub's server-side release metadata.
+
+### Notes
+
+- `progress.md`: recorded the Action run, release identity, artifact sizes and digests, public download checks, and verification limitation.
+- The workflow emitted Node.js 20 deprecation warnings for existing third-party actions; GitHub ran them on Node.js 24 and both jobs succeeded.
+- Release rollback: `gh release delete v1.11.7-fix --repo UranusNo7/dart_simple_live --yes`, then `git push origin :refs/tags/v1.11.7-fix` and `git tag -d v1.11.7-fix`.
