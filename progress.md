@@ -108,3 +108,27 @@
 - `progress.md`: recorded the Action run, release identity, artifact sizes and digests, public download checks, and verification limitation.
 - The workflow emitted Node.js 20 deprecation warnings for existing third-party actions; GitHub ran them on Node.js 24 and both jobs succeeded.
 - Release rollback: `gh release delete v1.11.7-fix --repo UranusNo7/dart_simple_live --yes`, then `git push origin :refs/tags/v1.11.7-fix` and `git tag -d v1.11.7-fix`.
+
+## 2026-08-22 - Task: Fix Windows fullscreen misalignment when entering from maximized window
+
+### What was done
+
+- Fixed the bug where clicking fullscreen while the window was maximized caused the window to be misplaced after exiting fullscreen (a known window_manager issue on Windows).
+- The fix now records the maximized state, unmaximizes before entering fullscreen, and restores the maximized state after exiting.
+- Unified all desktop fullscreen exit paths (player controls, ESC key, mouse side button) to go through the same helper so the maximize state is always restored.
+- Investigated Windows UI smoothness: danmaku rendering already isolates repaints internally; no evidence-backed code change was made for smoothness in this round (see Notes for follow-up options).
+
+### Testing
+
+- `flutter analyze --no-pub lib/main.dart lib/modules/live_room/player/player_controller.dart lib/app/utils/window_utils.dart`: No issues found.
+- `flutter build windows --release` on local Flutter 3.44.6: succeeded, produced `simple_live_app/build/windows/x64/runner/Release/simple_live_app.exe`.
+  - Local build required two environment-only workarounds (no repo changes): temporarily removing bogus windows/macos/linux platform declarations from the pub-cache copy of `auto_orientation_v2-2.4.5` (cache dir deleted afterwards so it re-extracts pristine), and setting `_CL_=utf-8` plus a local `nuget.exe` on PATH for the Chinese-locale MSVC toolchain. CI builds with Flutter 3.38.x are unaffected by all three.
+- Smoke test: launched the built exe; process stayed alive for 10 seconds, then was terminated manually.
+- Gap: actual fullscreen enter/exit behavior under a maximized window needs one manual GUI verification pass; automated verification of window placement was not available.
+
+### Notes
+
+- `simple_live_app/lib/app/utils/window_utils.dart`: new shared desktop fullscreen helper (`enterFullScreen`/`exitFullScreen`) that remembers and restores the maximized state.
+- `simple_live_app/lib/modules/live_room/player/player_controller.dart`: `enterFullScreen`/`exitFull` desktop branches now call the helper instead of calling `windowManager.setFullScreen` directly.
+- `simple_live_app/lib/main.dart`: ESC key and mouse side-button handlers now call `WindowUtils.exitFullScreen()` instead of `windowManager.setFullScreen(false)`.
+- Rollback: revert the two modified files and delete `lib/app/utils/window_utils.dart`, or `git checkout e17b585 -- simple_live_app/lib/main.dart simple_live_app/lib/modules/live_room/player/player_controller.dart && git clean -f simple_live_app/lib/app/utils/window_utils.dart`.
