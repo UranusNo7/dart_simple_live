@@ -17,6 +17,7 @@ import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/app/utils/listen_fourth_button.dart';
+import 'package:simple_live_app/app/utils/window_utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/models/db/follow_user_tag.dart';
 import 'package:simple_live_app/models/db/history.dart';
@@ -250,7 +251,7 @@ class MyApp extends StatelessWidget {
                           //如果处于全屏状态，退出全屏
                           if (!Platform.isAndroid && !Platform.isIOS) {
                             if (await windowManager.isFullScreen()) {
-                              await windowManager.setFullScreen(false);
+                              await WindowUtils.exitFullScreen();
                               return;
                             }
                           }
@@ -318,7 +319,7 @@ class _EscapeKeyboardListenerState extends State<_EscapeKeyboardListener> {
             event.logicalKey == LogicalKeyboardKey.escape) {
           if (!Platform.isAndroid && !Platform.isIOS) {
             if (await windowManager.isFullScreen()) {
-              await windowManager.setFullScreen(false);
+              await WindowUtils.exitFullScreen();
               return;
             }
           }

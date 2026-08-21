@@ -19,6 +19,7 @@ import 'package:simple_live_app/app/controller/base_controller.dart';
 import 'package:simple_live_app/app/custom_throttle.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
+import 'package:simple_live_app/app/utils/window_utils.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -280,7 +281,8 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
         setLandscapeOrientation();
       }
     } else {
-      await windowManager.setFullScreen(true);
+      //最大化状态下直接全屏会导致窗口错位,先取消最大化并记录状态
+      await WindowUtils.enterFullScreen();
     }
     //danmakuController?.clear();
   }
@@ -292,7 +294,8 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
           overlays: SystemUiOverlay.values);
       setPortraitOrientation();
     } else {
-      await windowManager.setFullScreen(false);
+      //退出全屏时还原进入前的最大化状态
+      await WindowUtils.exitFullScreen();
     }
     fullScreenState.value = false;
 
