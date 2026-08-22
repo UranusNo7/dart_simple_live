@@ -22,7 +22,7 @@ class SuperChatCard extends StatefulWidget {
 }
 
 class _SuperChatCardState extends State<SuperChatCard> {
-  StreamSubscription<int>? _countdownSub;
+  Timer? _countdownTimer;
   late ValueNotifier<int> _countdownNotifier;
   int _countdown = 0;
 
@@ -47,17 +47,20 @@ class _SuperChatCardState extends State<SuperChatCard> {
   }
 
   void _startCountdown() {
-    _countdownSub = Stream<int>.periodic(
-      const Duration(seconds: 1),
-      (tick) => _countdown - tick - 1,
-    ).takeWhile((v) => v >= 0).listen(
-      (v) {
-        if (mounted) _countdownNotifier.value = v;
-      },
-      onDone: () {
+    if (_countdown <= 0) {
+      _countdownTimer = Timer(Duration.zero, () {
         if (mounted) widget.onExpire?.call();
-      },
-    );
+      });
+      return;
+    }
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _countdown -= 1;
+      if (mounted) _countdownNotifier.value = _countdown;
+      if (_countdown <= 0) {
+        timer.cancel();
+        if (mounted) widget.onExpire?.call();
+      }
+    });
   }
 
   @override
@@ -65,7 +68,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message != widget.message ||
         oldWidget.customCountdown != widget.customCountdown) {
-      _countdownSub?.cancel();
+      _countdownTimer?.cancel();
       _countdown = _resolveCountdown();
       _countdownNotifier.value = _countdown;
       if (_countdown <= 0 && widget.customCountdown == null) return;
@@ -117,12 +120,8 @@ class _SuperChatCardState extends State<SuperChatCard> {
                   ValueListenableBuilder<int>(
                     valueListenable: _countdownNotifier,
                     builder: (context, value, _) {
-                      final displayCountdown =
-                          (widget.customCountdown ?? value)
-                              .clamp(0, 1 << 30)
-                              .toInt();
                       return Text(
-                        "$displayCountdown",
+                        "$value",
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.grey,
@@ -152,7 +151,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
 
   @override
   void dispose() {
-    _countdownSub?.cancel();
+    _countdownTimer?.cancel();
     _countdownNotifier.dispose();
     super.dispose();
   }

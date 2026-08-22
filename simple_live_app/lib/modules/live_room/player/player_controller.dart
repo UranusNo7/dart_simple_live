@@ -50,7 +50,7 @@ mixin PlayerMixin {
       }
     }
     // media_kit 仓库更新导致的问题，临时解决办法
-    if(Platform.isAndroid){
+    if (Platform.isAndroid) {
       await pp.setProperty('force-seekable', 'yes');
     }
   }
@@ -251,7 +251,9 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
   /// 释放一些系统状态
   Future resetSystem() async {
     _pipSubscription?.cancel();
-    pip.cancelOnLeavePiP();
+    if (Platform.isAndroid || Platform.isIOS) {
+      pip.cancelOnLeavePiP();
+    }
     await SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
@@ -270,34 +272,59 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     await WakelockPlus.disable();
   }
 
+  bool _fullScreenTransitioning = false;
+
   /// 进入全屏
   Future<void> enterFullScreen() async {
-    fullScreenState.value = true;
-    if (Platform.isAndroid || Platform.isIOS) {
-      //全屏
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-      if (!isVertical.value) {
-        //横屏
-        setLandscapeOrientation();
+    if (_fullScreenTransitioning || fullScreenState.value) {
+      return;
+    }
+    _fullScreenTransitioning = true;
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        //全屏
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
+            overlays: []);
+        if (!isVertical.value) {
+          //横屏
+          await setLandscapeOrientation();
+        }
+      } else {
+        await WindowUtils.enterFullScreen(
+          onTransitionStarted: () => fullScreenState.value = true,
+        );
+        // 兼容未触发回调的旧路径
+        fullScreenState.value = true;
       }
-    } else {
-      //最大化状态下直接全屏会导致窗口错位,先取消最大化并记录状态
-      await WindowUtils.enterFullScreen();
+    } finally {
+      _fullScreenTransitioning = false;
     }
     //danmakuController?.clear();
   }
 
   /// 退出全屏
   Future<void> exitFull() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge,
-          overlays: SystemUiOverlay.values);
-      setPortraitOrientation();
-    } else {
-      //退出全屏时还原进入前的最大化状态
-      await WindowUtils.exitFullScreen();
+    if (_fullScreenTransitioning) {
+      return;
     }
-    fullScreenState.value = false;
+    _fullScreenTransitioning = true;
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge,
+            overlays: SystemUiOverlay.values);
+        await setPortraitOrientation();
+      } else {
+        //退出全屏时还原进入前的最大化状态
+        await WindowUtils.exitFullScreen(
+          onTransitionStarted: () => fullScreenState.value = false,
+        );
+      }
+      if (Platform.isAndroid || Platform.isIOS) {
+        fullScreenState.value = false;
+      }
+    } finally {
+      _fullScreenTransitioning = false;
+    }
 
     //danmakuController?.clear();
   }
@@ -564,10 +591,6 @@ mixin PlayerGestureControlMixin
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
     }
-    //String text = "";
-    //double value = 0.0;
-
-    Log.logPrint("$verStartPosition/${e.globalPosition.dy}");
 
     if (leftVerticalDrag) {
       setGestureBrightness(e.globalPosition.dy);
@@ -611,7 +634,6 @@ mixin PlayerGestureControlMixin
   }
 
   Future _realSetVolume(int volume) async {
-    Log.logPrint(volume);
     VolumeController.instance.setVolume(volume / 100);
   }
 
@@ -627,7 +649,6 @@ mixin PlayerGestureControlMixin
       ScreenBrightness.instance.setApplicationScreenBrightness(seek);
 
       gestureTipText.value = "亮度 ${(seek * 100).toInt()}%";
-      Log.logPrint(value);
     } else {
       value = ((dy - verStartPosition) / (Get.height * 0.5));
       var seek = value.abs() + _currentBrightness;
@@ -637,7 +658,6 @@ mixin PlayerGestureControlMixin
 
       ScreenBrightness.instance.setApplicationScreenBrightness(seek);
       gestureTipText.value = "亮度 ${(seek * 100).toInt()}%";
-      Log.logPrint(value);
     }
   }
 

@@ -16,7 +16,6 @@ import 'package:simple_live_app/widgets/desktop_refresh_button.dart';
 import 'package:simple_live_app/widgets/follow_user_item.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
-import 'dart:async';
 import 'package:simple_live_core/simple_live_core.dart';
 
 Widget playerControls(
@@ -123,6 +122,7 @@ Widget buildFullControls(
                 ? 0
                 : -(48 + padding.top),
             duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
             child: Container(
               height: 48 + padding.top,
               padding: EdgeInsets.only(
@@ -224,6 +224,7 @@ Widget buildFullControls(
                 ? 0
                 : -(80 + padding.bottom),
             duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -360,6 +361,7 @@ Widget buildFullControls(
                 ? padding.right + 12
                 : -(64 + padding.right),
             duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
             child: buildLockButton(controller),
           ),
         ),
@@ -372,6 +374,7 @@ Widget buildFullControls(
                 ? padding.left + 12
                 : -(64 + padding.right),
             duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
             child: buildLockButton(controller),
           ),
         ),
@@ -487,6 +490,7 @@ Widget buildControls(
           right: 0,
           bottom: controller.showControlsState.value ? 0 : -48,
           duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -899,53 +903,25 @@ void showFollowUser(LiveRoomController controller) {
   );
 }
 
-class PlayerSuperChatCard extends StatefulWidget {
+class PlayerSuperChatCard extends StatelessWidget {
   final LiveSuperChatMessage message;
   final VoidCallback onExpire;
   final int duration;
-  const PlayerSuperChatCard(
-      {required this.message,
-      required this.onExpire,
-      required this.duration,
-      Key? key})
-      : super(key: key);
-  @override
-  State<PlayerSuperChatCard> createState() => _PlayerSuperChatCardState();
-}
-
-class _PlayerSuperChatCardState extends State<PlayerSuperChatCard> {
-  late Timer timer;
-  late int countdown;
-  @override
-  void initState() {
-    super.initState();
-    countdown = widget.duration;
-    timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (countdown <= 1) {
-        widget.onExpire();
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        countdown -= 1;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    timer.cancel();
-    super.dispose();
-  }
+  const PlayerSuperChatCard({
+    required this.message,
+    required this.onExpire,
+    required this.duration,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Opacity(
       opacity: 0.65,
       child: SuperChatCard(
-        widget.message,
-        onExpire: () {},
-        customCountdown: countdown,
+        message,
+        onExpire: onExpire,
+        customCountdown: duration,
       ),
     );
   }
@@ -968,7 +944,6 @@ class PlayerSuperChatOverlay extends StatefulWidget {
 
 class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
   final List<LocalDisplaySC> _displayed = [];
-  final Map<LocalDisplaySC, Timer> _timers = {};
   late Worker _worker;
 
   void _addSC(LiveSuperChatMessage sc, {int? customSeconds}) {
@@ -977,13 +952,13 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
     final expireAt = DateTime.now().add(Duration(seconds: showSeconds));
     final localSC = LocalDisplaySC(sc, expireAt, showSeconds);
     _displayed.add(localSC);
-    _timers[localSC] = Timer(Duration(seconds: showSeconds), () {
-      setState(() {
-        _displayed.remove(localSC);
-        _timers.remove(localSC)?.cancel();
-      });
-    });
     setState(() {});
+  }
+
+  void _removeSC(LocalDisplaySC localSC) {
+    if (_displayed.remove(localSC)) {
+      setState(() {});
+    }
   }
 
   @override
@@ -1015,9 +990,6 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
   @override
   void dispose() {
     _worker.dispose();
-    for (var t in _timers.values) {
-      t.cancel();
-    }
     super.dispose();
   }
 
@@ -1035,7 +1007,7 @@ class _PlayerSuperChatOverlayState extends State<PlayerSuperChatOverlay> {
               width: 240,
               child: PlayerSuperChatCard(
                 message: localSC.sc,
-                onExpire: () {},
+                onExpire: () => _removeSC(localSC),
                 duration: localSC.duration,
               ),
             ),

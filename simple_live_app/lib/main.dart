@@ -21,6 +21,7 @@ import 'package:simple_live_app/app/utils/window_utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/models/db/follow_user_tag.dart';
 import 'package:simple_live_app/models/db/history.dart';
+import 'package:simple_live_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_app/modules/other/debug_log_page.dart';
 import 'package:simple_live_app/routes/app_pages.dart';
 import 'package:simple_live_app/routes/route_path.dart';
@@ -115,6 +116,23 @@ Future initWindow() async {
     await windowManager.show();
     await windowManager.focus();
   });
+}
+
+Future<void> exitFullScreenFromSystem() async {
+  if (Get.isRegistered<LiveRoomController>()) {
+    await Get.find<LiveRoomController>().exitFull();
+  } else {
+    await WindowUtils.exitFullScreen();
+  }
+}
+
+Future<bool> isFullScreenActive() async {
+  final nativeFullScreen = await windowManager.isFullScreen();
+  if (nativeFullScreen) {
+    return true;
+  }
+  return Get.isRegistered<LiveRoomController>() &&
+      Get.find<LiveRoomController>().fullScreenState.value;
 }
 
 Future initServices() async {
@@ -224,7 +242,8 @@ class MyApp extends StatelessWidget {
             const maxNormalPadding = 50.0;
 
             final mediaQueryData = MediaQuery.of(context);
-            final hasAbnormalPadding = mediaQueryData.viewPadding.top > maxNormalPadding;
+            final hasAbnormalPadding =
+                mediaQueryData.viewPadding.top > maxNormalPadding;
 
             final fixedMediaQueryData = hasAbnormalPadding
                 ? mediaQueryData.copyWith(
@@ -232,59 +251,60 @@ class MyApp extends StatelessWidget {
                     padding: fallbackPadding,
                     textScaler: const TextScaler.linear(1.0),
                   )
-                : mediaQueryData.copyWith(textScaler: const TextScaler.linear(1.0));
+                : mediaQueryData.copyWith(
+                    textScaler: const TextScaler.linear(1.0));
 
             return MediaQuery(
               data: fixedMediaQueryData,
               child: Stack(
-              children: [
-                //侧键返回
-                RawGestureDetector(
-                  excludeFromSemantics: true,
-                  gestures: <Type, GestureRecognizerFactory>{
-                    FourthButtonTapGestureRecognizer:
-                        GestureRecognizerFactoryWithHandlers<
-                            FourthButtonTapGestureRecognizer>(
-                      () => FourthButtonTapGestureRecognizer(),
-                      (FourthButtonTapGestureRecognizer instance) {
-                        instance.onTapDown = (TapDownDetails details) async {
-                          //如果处于全屏状态，退出全屏
-                          if (!Platform.isAndroid && !Platform.isIOS) {
-                            if (await windowManager.isFullScreen()) {
-                              await WindowUtils.exitFullScreen();
-                              return;
+                children: [
+                  //侧键返回
+                  RawGestureDetector(
+                    excludeFromSemantics: true,
+                    gestures: <Type, GestureRecognizerFactory>{
+                      FourthButtonTapGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<
+                              FourthButtonTapGestureRecognizer>(
+                        () => FourthButtonTapGestureRecognizer(),
+                        (FourthButtonTapGestureRecognizer instance) {
+                          instance.onTapDown = (TapDownDetails details) async {
+                            //如果处于全屏状态，退出全屏
+                            if (!Platform.isAndroid && !Platform.isIOS) {
+                              if (await isFullScreenActive()) {
+                                await exitFullScreenFromSystem();
+                                return;
+                              }
                             }
-                          }
-                          Get.back();
-                        };
-                      },
-                    ),
-                  },
-                  child: _EscapeKeyboardListener(child: child!),
-                ),
-
-                //查看DEBUG日志按钮
-                //只在Debug、Profile模式显示
-                Visibility(
-                  visible: !kReleaseMode,
-                  child: Positioned(
-                    right: 12,
-                    bottom: 100 + context.mediaQueryViewPadding.bottom,
-                    child: Opacity(
-                      opacity: 0.4,
-                      child: ElevatedButton(
-                        child: const Text("DEBUG LOG"),
-                        onPressed: () {
-                          Get.bottomSheet(
-                            const DebugLogPage(),
-                          );
+                            Get.back();
+                          };
                         },
+                      ),
+                    },
+                    child: _EscapeKeyboardListener(child: child!),
+                  ),
+
+                  //查看DEBUG日志按钮
+                  //只在Debug、Profile模式显示
+                  Visibility(
+                    visible: !kReleaseMode,
+                    child: Positioned(
+                      right: 12,
+                      bottom: 100 + context.mediaQueryViewPadding.bottom,
+                      child: Opacity(
+                        opacity: 0.4,
+                        child: ElevatedButton(
+                          child: const Text("DEBUG LOG"),
+                          onPressed: () {
+                            Get.bottomSheet(
+                              const DebugLogPage(),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             );
           },
         ),
@@ -298,7 +318,8 @@ class _EscapeKeyboardListener extends StatefulWidget {
   const _EscapeKeyboardListener({required this.child});
 
   @override
-  State<_EscapeKeyboardListener> createState() => _EscapeKeyboardListenerState();
+  State<_EscapeKeyboardListener> createState() =>
+      _EscapeKeyboardListenerState();
 }
 
 class _EscapeKeyboardListenerState extends State<_EscapeKeyboardListener> {
@@ -318,8 +339,8 @@ class _EscapeKeyboardListenerState extends State<_EscapeKeyboardListener> {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
           if (!Platform.isAndroid && !Platform.isIOS) {
-            if (await windowManager.isFullScreen()) {
-              await WindowUtils.exitFullScreen();
+            if (await isFullScreenActive()) {
+              await exitFullScreenFromSystem();
               return;
             }
           }

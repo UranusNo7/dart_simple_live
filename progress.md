@@ -132,3 +132,86 @@
 - `simple_live_app/lib/modules/live_room/player/player_controller.dart`: `enterFullScreen`/`exitFull` desktop branches now call the helper instead of calling `windowManager.setFullScreen` directly.
 - `simple_live_app/lib/main.dart`: ESC key and mouse side-button handlers now call `WindowUtils.exitFullScreen()` instead of `windowManager.setFullScreen(false)`.
 - Rollback: revert the two modified files and delete `lib/app/utils/window_utils.dart`, or `git checkout e17b585 -- simple_live_app/lib/main.dart simple_live_app/lib/modules/live_room/player/player_controller.dart && git clean -f simple_live_app/lib/app/utils/window_utils.dart`.
+
+## 2026-08-22 - Task: Publish v1.11.8-fix via GitHub Actions
+
+### What was done
+
+- Published GitHub Release `v1.11.8-fix` (Windows ZIP + three split-ABI Android APKs) from run `32519665567` on `UranusNo7/dart_simple_live`.
+- Restored the broken CI Windows build by pinning `auto_orientation_v2` to a version without bogus desktop platform declarations (2.3.8).
+- Restored the Android build by pinning `dynamic_color` to 1.8.1 (1.9.0 published 2026-08-07 is incompatible with the project's Gradle setup) and by avoiding auto_orientation_v2 2.4.x's inconsistent Android JVM targets.
+- Both pins were required because the repo ignores `pubspec.lock`, so CI re-resolves floating constraints on every build and had drifted onto dependencies published after the v1.11.7-fix release.
+
+### Testing
+
+- Run `32519665567`: `build-windows` succeeded in 8m5s, `build-android` succeeded in 10m22s.
+- Release verified via `gh release view`: 4 assets all `state=uploaded`, `isDraft=false`, `isPrerelease=false`, listed as Latest.
+- Local verification before pushing: `flutter build windows --release` succeeded with the pinned versions (no cache workarounds needed for the dependency issue).
+- Two earlier runs failed during iteration (`32515920799`: auto_orientation CMake error; `32518046375`: dynamic_color Gradle error, then auto_orientation JVM-target error); one doomed run `32519540908` was cancelled after a mis-pathed local commit; all three tag states were superseded before any user-facing artifact was consumed.
+
+### Notes
+
+- `simple_live_app/pubspec.yaml`: pinned `auto_orientation_v2: 2.3.8` and `dynamic_color: 1.8.1` with explanatory comments.
+- Remote `master` fast-forwarded to `8baa65a` via branch `win-fullscreen-fix`; tag `v1.11.8-fix` points at `8baa65a`. Local `migration` branch received the same commits via cherry-pick (`06f0ca7`/`82f9ab4`/`121599a` line).
+- Note: remote master history is still the pre-sanitization lineage; publishing used fast-forward only, no force-push.
+- Rollback: delete release `v1.11.8-fix` and tag, then revert commits `8baa65a`/`b0e82ef`/`6364ebd`/`66866ab` on remote master.
+## 2026-08-22 - Task: Simplify UI behavior and improve player responsiveness
+
+### What was done
+
+- Audited the Flutter startup path, navigation, pagination, live-room UI, player controls, timers, subscriptions, and controller disposal without changing network protocols, playback backends, authentication, or dependency versions.
+- Made player control and shared scroll-to-top animations use Curves.easeOutCubic while preserving the existing 200 ms duration and destinations.
+- Reduced SuperChat overlay timer ownership from an overlay timer plus wrapper timer plus card stream to one cancellable countdown timer per visible card; the card now updates its display and expires exactly once.
+- Removed per-pointer-event logging from mobile volume and brightness gestures to avoid debug-list mutations and optional file writes on frame-sensitive paths.
+- Added a widget regression test for SuperChat countdown ticking and one-time expiration.
+- Added an audit document with deliberate non-changes and profiling gates, and documented the repository structure.
+
+### Testing
+
+- lutter test test/widget_test.dart test/page_views_test.dart --reporter expanded: passed, 4 tests.
+- lutter test --reporter expanded: passed, all current Flutter tests.
+- Focused lutter analyze --no-pub over all changed Dart files: passed with no issues.
+- Full lutter analyze: completed with exit code 1 because five existing info-level diagnostics remain in untouched files (onReorder deprecations, QR controller disposal, and one unnecessary import); no errors were reported.
+- dart format over changed Dart files: passed.
+- git diff --check: passed.
+- lutter build windows --release: passed and produced simple_live_app/build/windows/x64/runner/Release/simple_live_app.exe; only an existing third-party WebView CMake development warning was emitted.
+
+### Notes
+
+- simple_live_app/lib/app/controller/base_controller.dart: changed shared scroll-to-top easing.
+- simple_live_app/lib/modules/live_room/player/player_controller.dart: removed high-frequency gesture logging.
+- simple_live_app/lib/modules/live_room/player/player_controls.dart: unified player control easing and removed duplicate SuperChat wrapper timers.
+- simple_live_app/lib/widgets/superchat_card.dart: made the card own one deterministic cancellable countdown timer.
+- simple_live_app/test/widget_test.dart: added countdown expiration regression coverage.
+- docs/ui-performance-audit.md: records audit scope, implemented changes, deliberate boundaries, and profile gates.
+- docs/project-structure.md: records package and module responsibilities.
+- progress.md: records this task and its verification evidence.
+- Rollback: after committing this task, use git revert <commit>; before committing, reverse only the five scoped source/test files and the two new documents, preserving the pre-existing progress.md changes.
+
+### Correction to the preceding audit record
+
+The command names in the preceding entry are intended to be read as plain text: `flutter test`, `flutter analyze`, and `flutter build windows --release`. A PowerShell quoting artifact rendered the first character of those words as a control character in that appended block; no source file or verification result was affected.
+## 2026-08-22 - Task: Fix Windows fullscreen layout synchronization
+
+### What was done
+
+- Fixed desktop fullscreen state synchronization: WindowUtils still handles the Windows maximize/unmaximize workaround, but PlayerController now updates fullScreenState only at the native transition boundary and guards against overlapping enter/exit.
+- Unified system-triggered exits (ESC and mouse side button) through exitFullScreenFromSystem, which routes through LiveRoomController when active so the window state and player layout are restored together. Added isFullScreenActive to handle the case where Windows has already left native fullscreen before Flutter receives the key event.
+- Fixed Windows-only MissingPluginException from Floating PiP cancelOnLeavePiP during player cleanup by guarding it to Android/iOS.
+- Kept earlier audit changes: player control easing (easeOutCubic 200ms), scroll-to-top easing, single-timer SuperChat countdown, and removal of per-pointer gesture logging.
+
+### Testing
+
+- flutter analyze --no-pub lib/main.dart lib/app/utils/window_utils.dart lib/modules/live_room/player/player_controller.dart lib/modules/live_room/live_room_page.dart: No issues found.
+- flutter test --reporter expanded: passed, 4 tests.
+- flutter build windows --release: passed (third verified build).
+- Attempted visible window-size flash elimination was reverted after manual verification showed it broke maximized-window fullscreen (misaligned maximized window). Current build preserves correct maximized restore at the cost of a brief native window-size transition. User confirmed the remaining flash is acceptable and requested stop.
+
+### Notes
+
+- simple_live_app/lib/main.dart: added exitFullScreenFromSystem and isFullScreenActive and routed ESC/side-button through them.
+- simple_live_app/lib/app/utils/window_utils.dart: kept maximize workaround but added onTransitionStarted callback to align layout switching.
+- simple_live_app/lib/modules/live_room/player/player_controller.dart: added transition guard, aligned fullScreenState with native window callbacks, and guarded PiP cleanup.
+- docs/ui-performance-audit.md: documented the attempted flash elimination and its revert.
+- progress.md: records this task.
+- Rollback: revert this commit with git revert <commit>; for the fullscreen part, revert lib/main.dart, lib/app/utils/window_utils.dart, and lib/modules/live_room/player/player_controller.dart to the state before this task.

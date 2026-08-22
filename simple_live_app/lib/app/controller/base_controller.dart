@@ -136,7 +136,7 @@ class BasePageController<T> extends BaseController {
       scrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 200),
-        curve: Curves.linear,
+        curve: Curves.easeOutCubic,
       );
     } else {
       easyRefreshController.callRefresh();

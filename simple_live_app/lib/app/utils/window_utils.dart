@@ -11,20 +11,31 @@ class WindowUtils {
   static bool _wasMaximized = false;
 
   /// 进入全屏（仅桌面端生效）
-  static Future<void> enterFullScreen() async {
+  static Future<void> enterFullScreen({
+    void Function()? onTransitionStarted,
+  }) async {
     if (Platform.isAndroid || Platform.isIOS) return;
     if (await windowManager.isMaximized()) {
       _wasMaximized = true;
       await windowManager.unmaximize();
     }
-    await windowManager.setFullScreen(true);
+    final transition = windowManager.setFullScreen(true);
+    onTransitionStarted?.call();
+    await transition;
   }
 
   /// 退出全屏（仅桌面端生效），并还原进入前的最大化状态
-  static Future<void> exitFullScreen() async {
+  static Future<void> exitFullScreen({
+    void Function()? onTransitionStarted,
+  }) async {
     if (Platform.isAndroid || Platform.isIOS) return;
-    if (!await windowManager.isFullScreen()) return;
-    await windowManager.setFullScreen(false);
+    if (!await windowManager.isFullScreen()) {
+      onTransitionStarted?.call();
+      return;
+    }
+    final transition = windowManager.setFullScreen(false);
+    onTransitionStarted?.call();
+    await transition;
     if (_wasMaximized) {
       _wasMaximized = false;
       await windowManager.maximize();
