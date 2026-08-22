@@ -215,3 +215,23 @@ The command names in the preceding entry are intended to be read as plain text: 
 - docs/ui-performance-audit.md: documented the attempted flash elimination and its revert.
 - progress.md: records this task.
 - Rollback: revert this commit with git revert <commit>; for the fullscreen part, revert lib/main.dart, lib/app/utils/window_utils.dart, and lib/modules/live_room/player/player_controller.dart to the state before this task.
+## 2026-08-22 - Task: Publish v1.11.9-fix to GitHub
+
+### What was done
+
+- Committed audit and fullscreen fixes (c2f8af8) and fast-forwarded legacy/master from 8baa65a to c2f8af8, pushing to https://github.com/UranusNo7/dart_simple_live.git.
+- Created and pushed tag v1.11.9-fix, triggering workflow publish_app_release.yml (app-build-action) which builds Windows and Android artifacts in CI.
+- Verified the workflow run 32583571523 completed successfully and GitHub Release v1.11.9-fix was published with 4 assets.
+
+### Testing
+
+- gh run view 32583571523 --repo UranusNo7/dart_simple_live: status completed, conclusion success.
+- gh release view v1.11.9-fix --repo UranusNo7/dart_simple_live: 4 assets present (simple_live_app-v1.11.9-fix-windows.zip, app-arm64-v8a-release.apk, app-armeabi-v7a-release.apk, app-x86_64-release.apk), isDraft false, isPrerelease false.
+- Local checks before push: flutter analyze --no-pub on changed files No issues found, flutter test 4 passed, flutter build windows --release passed.
+
+### Notes
+
+- Tag v1.11.9-fix points at c2f8af8 on master/migration/win-fullscreen-fix.
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.9-fix
+- Rollback: delete remote tag v1.11.9-fix and release, then reset legacy/master to 8baa65a with git push --force-with-lease; revert commit c2f8af8 locally with git revert c2f8af8 if needed.
+
