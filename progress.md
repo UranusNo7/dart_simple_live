@@ -314,3 +314,20 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `progress.md`: recorded the commit, tag, Release URL, uploaded asset sizes and digests, and the direct legacy-repository target.
 - Release rollback: delete the Release with `gh release delete v1.11.10-fix --repo UranusNo7/dart_simple_live --yes`, delete the remote tag with `git push legacy :refs/tags/v1.11.10-fix`, then revert code commit `06e136e` on `master` if the published changes must be removed.
 
+## 2026-08-24 - Task: Keep v1.11.10-fix assets locally built
+
+### What was done
+
+- Cancelled the tag-triggered automatic release run `32656206826` after it uploaded a duplicate CI Windows archive.
+- Removed the CI-generated duplicate and re-uploaded the locally built Windows ZIP, leaving the local Android APK unchanged.
+
+### Testing
+
+- Workflow run `32656206826`: completed with conclusion `cancelled`.
+- Release `v1.11.10-fix` now contains exactly two uploaded assets, both matching the local build hashes recorded above.
+
+### Notes
+
+- `progress.md`: recorded the automatic-release cleanup and final local-asset state.
+- Release rollback remains the `v1.11.10-fix` Release deletion, remote tag deletion, and optional revert of `06e136e` described above.
+
