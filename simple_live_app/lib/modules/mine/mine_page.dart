@@ -72,55 +72,40 @@ class MinePage extends StatelessWidget {
                     Get.toNamed(RoutePath.kHistory);
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Remix.account_circle_line),
+                  title: const Text("账号管理"),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    Get.toNamed(RoutePath.kSettingsAccount);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.devices),
+                  title: const Text("数据同步"),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    Get.toNamed(RoutePath.kSync);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Remix.link),
+                  title: const Text("链接解析"),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    Get.toNamed(RoutePath.kTools);
+                  },
+                ),
               ],
-            ),
-            Divider(
-              indent: 12,
-              endIndent: 12,
-              color: Colors.grey.withAlpha(25),
-            ),
-            ListTile(
-              leading: const Icon(Remix.account_circle_line),
-              title: const Text("账号管理"),
-              trailing: const Icon(
-                Icons.chevron_right,
-                color: Colors.grey,
-              ),
-              onTap: () {
-                Get.toNamed(RoutePath.kSettingsAccount);
-              },
-            ),
-            Divider(
-              indent: 12,
-              endIndent: 12,
-              color: Colors.grey.withAlpha(25),
-            ),
-            ListTile(
-              leading: const Icon(Icons.devices),
-              title: const Text("数据同步"),
-              trailing: const Icon(
-                Icons.chevron_right,
-                color: Colors.grey,
-              ),
-              onTap: () {
-                Get.toNamed(RoutePath.kSync);
-              },
-            ),
-            Divider(
-              indent: 12,
-              endIndent: 12,
-              color: Colors.grey.withAlpha(25),
-            ),
-            ListTile(
-              leading: const Icon(Remix.link),
-              title: const Text("链接解析"),
-              trailing: const Icon(
-                Icons.chevron_right,
-                color: Colors.grey,
-              ),
-              onTap: () {
-                Get.toNamed(RoutePath.kTools);
-              },
             ),
             Divider(
               indent: 12,
@@ -139,17 +124,6 @@ class MinePage extends StatelessWidget {
                   ),
                   onTap: () {
                     Get.toNamed(RoutePath.kAppstyleSetting);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Remix.home_2_line),
-                  title: const Text("主页设置"),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                  ),
-                  onTap: () {
-                    Get.toNamed(RoutePath.kSettingsIndexed);
                   },
                 ),
                 ListTile(
@@ -194,17 +168,6 @@ class MinePage extends StatelessWidget {
                   ),
                   onTap: () {
                     Get.toNamed(RoutePath.kSettingsAutoExit);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Remix.apps_line),
-                  title: const Text("其他设置"),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                  ),
-                  onTap: () {
-                    Get.toNamed(RoutePath.kSettingsOther);
                   },
                 ),
                 if (kDebugMode)

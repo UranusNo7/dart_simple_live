@@ -417,13 +417,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
 
-    final mediaList = playUrls.map((url) {
-      var finalUrl = url;
-      if (AppSettingsController.instance.playerForceHttps.value) {
-        finalUrl = finalUrl.replaceAll("http://", "https://");
-      }
-      return Media(finalUrl, httpHeaders: playHeaders);
-    }).toList();
+    final mediaList =
+        playUrls.map((url) => Media(url, httpHeaders: playHeaders)).toList();
 
     // 初始化播放器并设置 ao 参数
     await initializePlayer();

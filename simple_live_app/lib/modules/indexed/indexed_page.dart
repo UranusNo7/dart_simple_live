@@ -20,7 +20,7 @@ class IndexedPage extends GetView<IndexedController> {
                   () => NavigationRail(
                     selectedIndex: controller.index.value,
                     onDestinationSelected: controller.setIndex,
-                    labelType: NavigationRailLabelType.none,
+                    labelType: NavigationRailLabelType.selected,
                     destinations: controller.items
                         .map(
                           (item) => NavigationRailDestination(
@@ -62,7 +62,7 @@ class IndexedPage extends GetView<IndexedController> {
                 selectedIndex: controller.index.value,
                 onDestinationSelected: controller.setIndex,
                 height: 56,
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: controller.items
                     .map(
                       (item) => NavigationDestination(

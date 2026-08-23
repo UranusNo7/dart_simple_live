@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
@@ -45,8 +43,6 @@ class AppSettingsController extends GetxController {
     danmuFontWeight.value = LocalStorageService.instance
         .getValue(LocalStorageService.kDanmuFontWeight, 4);
 
-    hardwareDecode.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kHardwareDecode, true);
     chatTextSize.value = LocalStorageService.instance
         .getValue(LocalStorageService.kChatTextSize, 14.0);
 
@@ -72,14 +68,8 @@ class AppSettingsController extends GetxController {
     roomAutoExitDuration.value = LocalStorageService.instance
         .getValue(LocalStorageService.kRoomAutoExitDuration, 60);
 
-    playerCompatMode.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kPlayerCompatMode, false);
-
     playerAutoPause.value = LocalStorageService.instance
         .getValue(LocalStorageService.kPlayerAutoPause, false);
-
-    playerForceHttps.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kPlayerForceHttps, false);
 
     autoFullScreen.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoFullScreen, false);
@@ -109,42 +99,11 @@ class AppSettingsController extends GetxController {
     bilibiliLoginTip.value = LocalStorageService.instance
         .getValue(LocalStorageService.kBilibiliLoginTip, true);
 
-    playerBufferSize.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kPlayerBufferSize, 32);
-
     logEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kLogEnable, false);
     if (logEnable.value) {
       Log.initWriter();
     }
-
-    customPlayerOutput.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kCustomPlayerOutput, false);
-
-    videoOutputDriver.value = LocalStorageService.instance.getValue(
-      LocalStorageService.kVideoOutputDriver,
-      Platform.isAndroid ? "gpu" : "libmpv",
-    );
-
-    audioOutputDriver.value = LocalStorageService.instance.getValue(
-      LocalStorageService.kAudioOutputDriver,
-      Platform.isAndroid
-          ? "audiotrack"
-          : Platform.isLinux
-              ? "pulse"
-              : Platform.isWindows
-                  ? "wasapi"
-                  : Platform.isIOS
-                      ? "audiounit"
-                      : Platform.isMacOS
-                          ? "coreaudio"
-                          : "sdl",
-    );
-
-    videoHardwareDecoder.value = LocalStorageService.instance.getValue(
-      LocalStorageService.kVideoHardwareDecoder,
-      Platform.isAndroid ? "auto-safe" : "auto",
-    );
 
     autoUpdateFollowEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoUpdateFollowEnable, true);
@@ -153,7 +112,7 @@ class AppSettingsController extends GetxController {
         .getValue(LocalStorageService.kUpdateFollowDuration, 10);
 
     updateFollowThreadCount.value = LocalStorageService.instance
-        .getValue(LocalStorageService.kUpdateFollowThreadCount, 0);  // 默认 0 = 自动
+        .getValue(LocalStorageService.kUpdateFollowThreadCount, 0); // 默认 0 = 自动
 
     initSiteSort();
     initHomeSort();
@@ -182,23 +141,19 @@ class AppSettingsController extends GetxController {
   }
 
   void initHomeSort() {
-    var sort = LocalStorageService.instance
-        .getValue(
-          LocalStorageService.kHomeSort,
-          Constant.allHomePages.keys.join(","),
-        )
-        .split(",");
-    //如果数量与allSites的数量不一致，将缺失的添加上
-    if (sort.length != Constant.allHomePages.length) {
-      var keys = Constant.allHomePages.keys.toList();
-      for (var i = 0; i < keys.length; i++) {
-        if (!sort.contains(keys[i])) {
-          sort.add(keys[i]);
-        }
-      }
-    }
+    final storedSort = LocalStorageService.instance.getValue(
+      LocalStorageService.kHomeSort,
+      Constant.allHomePages.keys.join(","),
+    );
+    final sort = Constant.allHomePages.keys.toList();
 
     homeSort.value = sort;
+    if (sort.join(",") != storedSort) {
+      LocalStorageService.instance.setValue(
+        LocalStorageService.kHomeSort,
+        sort.join(","),
+      );
+    }
   }
 
   void setNoFirstRun() {
@@ -240,13 +195,6 @@ class AppSettingsController extends GetxController {
 
     LocalStorageService.instance.setValue(LocalStorageService.kThemeMode, i);
     Get.changeThemeMode(mode);
-  }
-
-  var hardwareDecode = true.obs;
-  void setHardwareDecode(bool e) {
-    hardwareDecode.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kHardwareDecode, e);
   }
 
   var chatTextSize = 14.0.obs;
@@ -347,20 +295,6 @@ class AppSettingsController extends GetxController {
         .setValue(LocalStorageService.kRoomAutoExitDuration, e);
   }
 
-  var playerCompatMode = false.obs;
-  void setPlayerCompatMode(bool e) {
-    playerCompatMode.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kPlayerCompatMode, e);
-  }
-
-  var playerBufferSize = 32.obs;
-  void setPlayerBufferSize(int e) {
-    playerBufferSize.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kPlayerBufferSize, e);
-  }
-
   var playerAutoPause = false.obs;
   void setPlayerAutoPause(bool e) {
     playerAutoPause.value = e;
@@ -436,13 +370,6 @@ class AppSettingsController extends GetxController {
   }
 
   RxList<String> homeSort = RxList<String>();
-  void setHomeSort(List<String> e) {
-    homeSort.value = e;
-    LocalStorageService.instance.setValue(
-      LocalStorageService.kHomeSort,
-      homeSort.join(","),
-    );
-  }
 
   Rx<double> playerVolume = 100.0.obs;
   void setPlayerVolume(double value) {
@@ -503,34 +430,6 @@ class AppSettingsController extends GetxController {
     }
   }
 
-  var customPlayerOutput = false.obs;
-  void setCustomPlayerOutput(bool e) {
-    customPlayerOutput.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kCustomPlayerOutput, e);
-  }
-
-  var videoOutputDriver = "".obs;
-  void setVideoOutputDriver(String e) {
-    videoOutputDriver.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kVideoOutputDriver, e);
-  }
-
-  var audioOutputDriver = "".obs;
-  void setAudioOutputDriver(String e) {
-    audioOutputDriver.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kAudioOutputDriver, e);
-  }
-
-  var videoHardwareDecoder = "".obs;
-  void setVideoHardwareDecoder(String e) {
-    videoHardwareDecoder.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kVideoHardwareDecoder, e);
-  }
-
   var autoUpdateFollowEnable = false.obs;
   void setAutoUpdateFollowEnable(bool e) {
     autoUpdateFollowEnable.value = e;
@@ -550,12 +449,5 @@ class AppSettingsController extends GetxController {
     updateFollowThreadCount.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kUpdateFollowThreadCount, e);
-  }
-
-  var playerForceHttps = false.obs;
-  void setPlayerForceHttps(bool e) {
-    playerForceHttps.value = e;
-    LocalStorageService.instance
-        .setValue(LocalStorageService.kPlayerForceHttps, e);
   }
 }

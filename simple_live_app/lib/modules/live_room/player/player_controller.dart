@@ -18,10 +18,25 @@ import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/controller/base_controller.dart';
 import 'package:simple_live_app/app/custom_throttle.dart';
 import 'package:simple_live_app/app/log.dart';
+import 'package:simple_live_app/app/player_config/android_player_config.dart';
+import 'package:simple_live_app/app/player_config/windows_player_config.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/app/utils/window_utils.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
+
+Future<void> enterMobileFullScreen({
+  required Future<void> Function() hideSystemUi,
+  required void Function() activateFullScreenLayout,
+  required Future<void> Function() requestLandscape,
+  required bool rotateToLandscape,
+}) async {
+  await hideSystemUi();
+  activateFullScreenLayout();
+  if (rotateToLandscape) {
+    await requestLandscape();
+  }
+}
 
 mixin PlayerMixin {
   GlobalKey<VideoState> globalPlayerKey = GlobalKey<VideoState>();
@@ -37,42 +52,21 @@ mixin PlayerMixin {
     ),
   );
 
-  /// 初始化播放器并设置 ao 参数
+  /// 初始化播放器
   Future<void> initializePlayer() async {
-    var pp = player.platform as NativePlayer;
-    // 设置音频输出驱动
-    if (AppSettingsController.instance.customPlayerOutput.value) {
-      if (player.platform is NativePlayer) {
-        await (player.platform as dynamic).setProperty(
-          'ao',
-          AppSettingsController.instance.audioOutputDriver.value,
-        );
-      }
-    }
     // media_kit 仓库更新导致的问题，临时解决办法
     if (Platform.isAndroid) {
-      await pp.setProperty('force-seekable', 'yes');
+      await (player.platform as NativePlayer)
+          .setProperty('force-seekable', 'yes');
     }
   }
 
   /// 视频控制器
   late final videoController = VideoController(
     player,
-    configuration: AppSettingsController.instance.customPlayerOutput.value
-        ? VideoControllerConfiguration(
-            vo: AppSettingsController.instance.videoOutputDriver.value,
-            hwdec: AppSettingsController.instance.videoHardwareDecoder.value,
-          )
-        : AppSettingsController.instance.playerCompatMode.value
-            ? const VideoControllerConfiguration(
-                vo: 'mediacodec_embed',
-                hwdec: 'mediacodec',
-              )
-            : VideoControllerConfiguration(
-                enableHardwareAcceleration:
-                    AppSettingsController.instance.hardwareDecode.value,
-                androidAttachSurfaceAfterVideoParameters: false,
-              ),
+    configuration: Platform.isAndroid
+        ? androidPlayerConfiguration
+        : windowsPlayerConfiguration,
   );
 }
 
@@ -282,13 +276,16 @@ mixin PlayerSystemMixin on PlayerMixin, PlayerStateMixin, PlayerDanmakuMixin {
     _fullScreenTransitioning = true;
     try {
       if (Platform.isAndroid || Platform.isIOS) {
-        //全屏
-        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-            overlays: []);
-        if (!isVertical.value) {
-          //横屏
-          await setLandscapeOrientation();
-        }
+        await enterMobileFullScreen(
+          hideSystemUi: () => SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.manual,
+            overlays: [],
+          ),
+          //先切换为全屏布局，再请求设备旋转，避免旋转过渡期间进入普通横屏双栏布局。
+          activateFullScreenLayout: () => fullScreenState.value = true,
+          requestLandscape: setLandscapeOrientation,
+          rotateToLandscape: !isVertical.value,
+        );
       } else {
         await WindowUtils.enterFullScreen(
           onTransitionStarted: () => fullScreenState.value = true,

@@ -62,9 +62,6 @@ class LocalStorageService extends GetxService {
   /// 弹幕字重
   static const String kDanmuFontWeight = "DanmuFontWeight";
 
-  /// 硬件解码
-  static const String kHardwareDecode = "HardwareDecode";
-
   /// 聊天区文字大小
   static const String kChatTextSize = "ChatTextSize";
 
@@ -90,17 +87,8 @@ class LocalStorageService extends GetxService {
   /// 需要一个不同的 key，因为用户在房间内设置的倒计时和全局的可能不同。
   static const String kRoomAutoExitDuration = "RoomAutoExitDuration";
 
-  /// 播放器兼容模式
-  static const String kPlayerCompatMode = "PlayerCompatMode";
-
   /// 播放器后台自动暂停
   static const String kPlayerAutoPause = "PlayerAutoPause";
-
-  /// 播放器缓冲区大小
-  static const String kPlayerBufferSize = "PlayerBufferSize";
-
-  /// 播放器强制使用HTTPS
-  static const String kPlayerForceHttps = "PlayerForceHttps";
 
   /// 自动全屏
   static const String kAutoFullScreen = "AutoFullScreen";
@@ -131,18 +119,6 @@ class LocalStorageService extends GetxService {
 
   /// 日志记录
   static const String kLogEnable = "LogEnable";
-
-  /// 开启自定义播放器视频输出
-  static const String kCustomPlayerOutput = "CustomPlayerOutput";
-
-  /// 视频输出驱动
-  static const String kVideoOutputDriver = "VideoOutputDriver";
-
-  /// 视频硬件解码器
-  static const String kVideoHardwareDecoder = "VideoHardwareDecoder";
-
-  /// 音频输出驱动
-  static const String kAudioOutputDriver = "AudioOutputDriver";
 
   /// 开启自动更新关注
   static const String kAutoUpdateFollowEnable = "AutoUpdateFollowEnable";

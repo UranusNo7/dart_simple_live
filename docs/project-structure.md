@@ -15,7 +15,8 @@ Within `simple_live_app/lib/`:
 
 - `main.dart`: Process initialization, services, themes, routing host, global keyboard/mouse behavior.
 - `app/`: Shared settings, styles, constants, events, logging, and utilities.
-- `modules/`: Feature pages and GetX controllers, including home, category, search, follow, live room, settings, and synchronization.
+- `app/player_config/`: Fixed media player configurations for Windows and Android phones.
+- `modules/`: Feature pages and GetX controllers, including home, search, follow, live room, settings, and synchronization.
 - `modules/live_room/player/`: Player lifecycle, gestures, fullscreen behavior, danmaku surface, and player controls.
 - `services/`: Long-lived persistence, accounts, follows, synchronization, and connection services.
 - `widgets/`: Reusable presentation components, pagination views, images, status states, and SuperChat cards.

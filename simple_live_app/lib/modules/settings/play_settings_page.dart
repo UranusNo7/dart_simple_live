@@ -34,46 +34,6 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
               children: [
                 Obx(
                   () => SettingsSwitch(
-                    title: "硬件解码",
-                    value: controller.hardwareDecode.value,
-                    subtitle: "播放失败可尝试关闭此选项",
-                    onChanged: (e) {
-                      controller.setHardwareDecode(e);
-                    },
-                  ),
-                ),
-                if (Platform.isAndroid) AppStyle.divider,
-                Obx(
-                  () => Visibility(
-                    visible: Platform.isAndroid,
-                    child: SettingsSwitch(
-                      title: "兼容模式",
-                      subtitle: "若播放卡顿可尝试打开此选项",
-                      value: controller.playerCompatMode.value,
-                      onChanged: (e) {
-                        controller.setPlayerCompatMode(e);
-                      },
-                    ),
-                  ),
-                ),
-                // AppStyle.divider,
-                // Obx(
-                //   () => SettingsNumber(
-                //     title: "缓冲区大小",
-                //     subtitle: "若播放卡顿可尝试调高此选项",
-                //     value: controller.playerBufferSize.value,
-                //     min: 32,
-                //     max: 1024,
-                //     step: 4,
-                //     unit: "MB",
-                //     onChanged: (e) {
-                //       controller.setPlayerBufferSize(e);
-                //     },
-                //   ),
-                // ),
-                AppStyle.divider,
-                Obx(
-                  () => SettingsSwitch(
                     title: "进入后台自动暂停",
                     value: controller.playerAutoPause.value,
                     onChanged: (e) {
@@ -95,17 +55,6 @@ class PlaySettingsPage extends GetView<AppSettingsController> {
                     },
                     onChanged: (e) {
                       controller.setScaleMode(e);
-                    },
-                  ),
-                ),
-                AppStyle.divider,
-                Obx(
-                  () => SettingsSwitch(
-                    title: "使用HTTPS链接",
-                    subtitle: "将http链接替换为https",
-                    value: controller.playerForceHttps.value,
-                    onChanged: (e) {
-                      controller.setPlayerForceHttps(e);
                     },
                   ),
                 ),

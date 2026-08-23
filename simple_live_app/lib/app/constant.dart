@@ -16,15 +16,10 @@ class Constant {
       title: "关注",
       index: 1,
     ),
-    "category": HomePageItem(
-      iconData: Remix.apps_line,
-      title: "分类",
-      index: 2,
-    ),
     "user": HomePageItem(
       iconData: Remix.user_smile_line,
       title: "我的",
-      index: 3,
+      index: 2,
     ),
   };
 

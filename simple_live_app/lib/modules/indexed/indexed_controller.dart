@@ -5,8 +5,6 @@ import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_app/app/event_bus.dart';
 import 'package:simple_live_app/app/utils.dart';
-import 'package:simple_live_app/modules/category/category_controller.dart';
-import 'package:simple_live_app/modules/category/category_page.dart';
 import 'package:simple_live_app/modules/home/home_controller.dart';
 import 'package:simple_live_app/modules/home/home_page.dart';
 import 'package:simple_live_app/modules/follow_user/follow_user_controller.dart';
@@ -18,7 +16,6 @@ class IndexedController extends GetxController {
 
   var index = 0.obs;
   RxList<Widget> pages = RxList<Widget>([
-    const SizedBox(),
     const SizedBox(),
     const SizedBox(),
     const SizedBox(),
@@ -36,10 +33,6 @@ class IndexedController extends GetxController {
           pages[i] = const FollowUserPage();
           break;
         case 2:
-          Get.put(CategoryController());
-          pages[i] = const CategoryPage();
-          break;
-        case 3:
           pages[i] = const MinePage();
           break;
         default:
@@ -69,6 +62,6 @@ class IndexedController extends GetxController {
     if (settingsController.firstRun) {
       settingsController.setNoFirstRun();
       await Utils.showStatement();
-    } 
+    }
   }
 }

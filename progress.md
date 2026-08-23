@@ -235,3 +235,61 @@ The command names in the preceding entry are intended to be read as plain text: 
 - Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.9-fix
 - Rollback: delete remote tag v1.11.9-fix and release, then reset legacy/master to 8baa65a with git push --force-with-lease; revert commit c2f8af8 locally with git revert c2f8af8 if needed.
 
+## 2026-08-24 - Task: Simplify Windows and Android app navigation, settings, and fullscreen behavior
+
+### What was done
+
+- Removed the primary app's category destination, category detail flow, home navigation ordering page, and their routes/controllers; the main navigation is now fixed to 首页、关注、我的.
+- Simplified the "我的" and settings surfaces by removing home-ordering and advanced-settings entry points, and removed manual follow refresh concurrency controls while preserving existing stored data compatibility.
+- Replaced exposed player compatibility controls with fixed Windows and Android phone configurations, keeping only user-facing viewing preferences such as quality, scaling, background pause, fullscreen, danmaku, and chat presentation.
+- Fixed Android fullscreen entry ordering so Flutter switches to the fullscreen player layout before requesting landscape orientation, preventing the transient left-video/right-danmaku layout during rotation.
+- Kept Android TV outside this change and retained shared core category APIs and compatibility storage keys that are still used by other clients or imported configurations.
+
+### Testing
+
+- `D:\development\flutter\bin\dart.bat format` over 20 scoped Dart files: passed.
+- Focused `flutter analyze --no-pub` over changed app/test paths: passed with no issues.
+- `flutter test test/widget_test.dart test/page_views_test.dart test/navigation_settings_test.dart test/fullscreen_transition_test.dart --reporter expanded --no-pub`: passed, 6 tests.
+- Full `flutter analyze --no-pub`: no errors; 3 pre-existing info diagnostics remain in untouched follow sorting, QR disposal, and WebDAV import code.
+- `flutter build windows --release`: passed and produced `simple_live_app/build/windows/x64/runner/Release/simple_live_app.exe`.
+- `flutter build apk --release`: passed and produced `simple_live_app/build/app/outputs/flutter-apk/app-release.apk`.
+- Build warnings were limited to the existing WebView CMake development warning and Flutter notices about future Gradle, AGP, and Kotlin minimum versions.
+- Final `git diff --check` passed, and residual-reference audits found no obsolete player-setting or primary-app category references.
+
+### Notes
+
+- `docs/project-structure.md`: documented the fixed player configuration directory.
+- `docs/navigation-and-settings.md`: documented the simplified navigation, fullscreen transition, and Windows/Android player defaults.
+- `simple_live_app/android/gradle.properties`: retained Flutter 3.44.6's generated Android migration properties required by the verified builds.
+- `simple_live_app/lib/app/constant.dart`: removed the category destination and renumbered the fixed primary destinations.
+- `simple_live_app/lib/app/controller/app_settings_controller.dart`: removed obsolete player settings and normalized the fixed home order.
+- `simple_live_app/lib/app/player_config/android_player_config.dart`: added the fixed Android phone media configuration.
+- `simple_live_app/lib/app/player_config/windows_player_config.dart`: added the fixed Windows media configuration.
+- `simple_live_app/lib/modules/category/category_controller.dart`: removed the unused primary-app category controller.
+- `simple_live_app/lib/modules/category/category_list_controller.dart`: removed the unused primary-app category list controller.
+- `simple_live_app/lib/modules/category/category_list_view.dart`: removed the unused primary-app category list view.
+- `simple_live_app/lib/modules/category/category_page.dart`: removed the unused primary-app category page.
+- `simple_live_app/lib/modules/category/detail/category_detail_controller.dart`: removed the unused primary-app category detail controller.
+- `simple_live_app/lib/modules/category/detail/category_detail_page.dart`: removed the unused primary-app category detail page.
+- `simple_live_app/lib/modules/indexed/indexed_controller.dart`: fixed the primary navigation page list to three destinations.
+- `simple_live_app/lib/modules/indexed/indexed_page.dart`: kept labels visible in Windows rail and Android bottom navigation.
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: removed forced HTTPS URL rewriting from playback flow.
+- `simple_live_app/lib/modules/live_room/player/player_controller.dart`: selected fixed platform player configurations and synchronized mobile fullscreen entry ordering.
+- `simple_live_app/lib/modules/mine/mine_page.dart`: removed unnecessary home and advanced settings entries and regrouped essential links.
+- `simple_live_app/lib/modules/settings/follow_settings_page.dart`: removed manual follow update concurrency controls.
+- `simple_live_app/lib/modules/settings/indexed_settings/indexed_settings_controller.dart`: removed the unused home-ordering settings controller.
+- `simple_live_app/lib/modules/settings/indexed_settings/indexed_settings_page.dart`: removed the unused home-ordering settings page.
+- `simple_live_app/lib/modules/settings/other/other_settings_controller.dart`: removed obsolete player driver option maps.
+- `simple_live_app/lib/modules/settings/other/other_settings_page.dart`: removed the unnecessary advanced player settings UI.
+- `simple_live_app/lib/modules/settings/play_settings_page.dart`: removed decoder, compatibility, buffer, and HTTPS switches.
+- `simple_live_app/lib/routes/app_navigation.dart`: removed category detail navigation.
+- `simple_live_app/lib/routes/app_pages.dart`: removed category detail and home-ordering routes.
+- `simple_live_app/lib/routes/route_path.dart`: removed category detail and home-ordering route constants.
+- `simple_live_app/lib/services/local_storage_service.dart`: removed obsolete player setting keys while retaining import compatibility behavior elsewhere.
+- `simple_live_app/test/fullscreen_transition_test.dart`: added a regression test for fullscreen layout activation order.
+- `simple_live_app/test/navigation_settings_test.dart`: added a regression test for the fixed primary navigation destinations.
+- `simple_live_app/windows/flutter/generated_plugin_registrant.cc`: retained the Flutter-generated Windows plugin registration refresh from the verified toolchain.
+- `simple_live_app/windows/flutter/generated_plugins.cmake`: retained the Flutter-generated Windows plugin list refresh from the verified toolchain.
+- `progress.md`: appended this task record.
+- Rollback: no commit was created; restore the tracked paths above to `HEAD` with explicit `git restore --worktree -- <paths>`, then remove only the four newly added player-config/test files and `docs/navigation-and-settings.md` with explicit paths. This returns the worktree to its pre-task committed state while preserving unrelated files.
+

@@ -6,9 +6,6 @@ class RoutePath {
   /// 搜索
   static const kSearch = "/search";
 
-  /// 分类详情
-  static const kCategoryDetail = "/category/detail";
-
   /// 直播间
   static const kLiveRoomDetail = "/room/detail";
 
@@ -38,9 +35,6 @@ class RoutePath {
 
   /// 工具箱
   static const kTools = "/other/tools";
-
-  /// 主页设置
-  static const kSettingsIndexed = "/settings/indexed";
 
   /// 外观设置
   static const kAppstyleSetting = "/settings/appstyle";
