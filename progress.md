@@ -293,3 +293,24 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `progress.md`: appended this task record.
 - Rollback: no commit was created; restore the tracked paths above to `HEAD` with explicit `git restore --worktree -- <paths>`, then remove only the four newly added player-config/test files and `docs/navigation-and-settings.md` with explicit paths. This returns the worktree to its pre-task committed state while preserving unrelated files.
 
+## 2026-08-24 - Task: Publish v1.11.10-fix to GitHub
+
+### What was done
+
+- Committed the Windows and Android simplification as `06e136e` and pushed it directly to `UranusNo7/dart_simple_live` `master` because the configured formal-fork remote does not exist.
+- Created and pushed tag `v1.11.10-fix`.
+- Created and published the GitHub Release with the locally verified Windows ZIP and Android universal APK.
+
+### Testing
+
+- Remote `master` resolves to `06e136e86aca0bd28c1f25e27392d9af72978d7a`.
+- Release `v1.11.10-fix` is published, not draft, and not prerelease: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.10-fix
+- `simple_live_app-v1.11.10-fix-windows.zip`: 38,207,548 bytes, SHA-256 `b7802f11ea234a87eba62d1c23dfab934a9a62167e079b9b07983794186e9bd4`.
+- `simple_live_app-v1.11.10-fix-android.apk`: 119,295,391 bytes, SHA-256 `fd487e281a057a1089824d05139a551684db53aa7b1d08d72011c2effd98926f`.
+- Both Release assets report `state=uploaded` in GitHub metadata.
+
+### Notes
+
+- `progress.md`: recorded the commit, tag, Release URL, uploaded asset sizes and digests, and the direct legacy-repository target.
+- Release rollback: delete the Release with `gh release delete v1.11.10-fix --repo UranusNo7/dart_simple_live --yes`, delete the remote tag with `git push legacy :refs/tags/v1.11.10-fix`, then revert code commit `06e136e` on `master` if the published changes must be removed.
+
