@@ -353,3 +353,22 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `progress.md`: recorded the release workflow change.
 - Rollback: revert the commit containing these three files, or restore only these paths to their previous revision.
 
+## 2026-08-24 - Task: Replace v1.11.10-fix universal APK with arm64-v8a
+
+### What was done
+
+- Uploaded the locally verified arm64-v8a APK to the existing `v1.11.10-fix` Release before removing the older universal Android APK.
+- Kept the existing Windows ZIP unchanged; the Release now contains exactly the Windows ZIP and Android arm64-v8a APK.
+
+### Testing
+
+- `simple_live_app-v1.11.10-fix-android-arm64-v8a.apk`: 40,891,031 bytes, SHA-256 `b2b87362eed3c14826968a8292390595875294d3c8ea89e73f09a5d64c6d9afe`.
+- GitHub reports both final assets as `state=uploaded`; the Release remains published, not draft, and not prerelease.
+- APK archive inspection confirmed all native libraries are under `lib/arm64-v8a/` only.
+
+### Notes
+
+- `progress.md`: recorded replacement of the existing Release's universal Android APK.
+- The removed universal APK remains recoverable from the local `simple_live_app/build/dist/v1.11.10-fix/` copy.
+- Rollback: re-upload `simple_live_app-v1.11.10-fix-android.apk` from the local release directory, then delete the arm64-specific asset if universal distribution is restored.
+
