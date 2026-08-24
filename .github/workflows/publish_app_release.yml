@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       build_android:
-        description: "Also build Android APKs"
+        description: "Also build the Android arm64-v8a APK"
         required: false
         default: false
         type: boolean
@@ -107,7 +107,7 @@ jobs:
       - name: Build APK
         run: |
           cd simple_live_app
-          flutter build apk --release --split-per-abi
+          flutter build apk --release --split-per-abi --target-platform android-arm64
 
       - name: Get version from tag
         id: version
@@ -126,6 +126,4 @@ jobs:
           tag_name: "${{ steps.version.outputs.VERSION }}"
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            simple_live_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            simple_live_app/build/app/outputs/flutter-apk/app-x86_64-release.apk

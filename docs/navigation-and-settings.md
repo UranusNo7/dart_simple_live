@@ -44,3 +44,5 @@ On Android, the player marks the Flutter page as full-screen before requesting l
 The verified toolchain is Flutter 3.44.6 with Dart 3.12.2. This matches the locked `volume_controller 3.6.0` SDK requirement and the native-asset hook format stored in the generated package state.
 
 Flutter 3.44.6 adds `android.builtInKotlin=false` and `android.newDsl=false` to the Android Gradle properties when migrating this existing project. The generated Windows plugin registrant is refreshed for the current `screen_brightness_windows` C API and FFI plugin list. These generated changes are required by the verified Windows and Android release builds; no package constraint or lock-file version changed.
+
+The primary app release workflow publishes only the Android `arm64-v8a` APK. The Android TV workflow and development artifact workflow are unchanged.

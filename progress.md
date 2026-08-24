@@ -331,3 +331,25 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `progress.md`: recorded the automatic-release cleanup and final local-asset state.
 - Release rollback remains the `v1.11.10-fix` Release deletion, remote tag deletion, and optional revert of `06e136e` described above.
 
+## 2026-08-24 - Task: Publish only Android arm64-v8a APKs
+
+### What was done
+
+- Changed the primary app release workflow to build only `android-arm64` with ABI splitting and upload only `app-arm64-v8a-release.apk`.
+- Kept the Windows release, Android TV workflow, and development artifact workflow unchanged.
+
+### Testing
+
+- Verified Flutter supports combining `--split-per-abi` with `--target-platform android-arm64`.
+- `flutter build apk --release --split-per-abi --target-platform android-arm64`: passed and produced `simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (39.0 MB).
+- APK contents contain native libraries only under `lib/arm64-v8a/`; no armeabi-v7a or x86_64 libraries were produced.
+- `git diff --check` passed; no other ABI upload references remain in the primary app release workflow.
+
+### Notes
+
+- `.github/workflows/publish_app_release.yml`: restricted primary Android release output to arm64-v8a.
+- `docs/navigation-and-settings.md`: documented the release ABI boundary.
+- `simple_live_app/linux/flutter/generated_plugins.cmake`: reverted an unrelated Flutter build-generated Linux change.
+- `progress.md`: recorded the release workflow change.
+- Rollback: revert the commit containing these three files, or restore only these paths to their previous revision.
+
