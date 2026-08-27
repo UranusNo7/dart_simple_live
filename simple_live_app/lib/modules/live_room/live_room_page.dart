@@ -25,6 +25,15 @@ import 'package:simple_live_app/widgets/settings/settings_switch.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
+const double kWideLiveRoomBreakpoint = 900;
+
+bool shouldUseWideLiveRoomLayout({
+  required bool isAndroid,
+  required double width,
+}) {
+  return !isAndroid && width >= kWideLiveRoomBreakpoint;
+}
+
 class LiveRoomPage extends GetView<LiveRoomController> {
   const LiveRoomPage({Key? key}) : super(key: key);
 
@@ -112,8 +121,12 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   }
 
   Widget buildPageUI() {
-    return OrientationBuilder(
-      builder: (context, orientation) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useWideLayout = shouldUseWideLiveRoomLayout(
+          isAndroid: Platform.isAndroid,
+          width: constraints.maxWidth,
+        );
         return Scaffold(
           appBar: AppBar(
             title: Obx(
@@ -121,9 +134,7 @@ class LiveRoomPage extends GetView<LiveRoomController> {
             ),
             actions: buildAppbarActions(context),
           ),
-          body: orientation == Orientation.portrait
-              ? buildPhoneUI(context)
-              : buildTabletUI(context),
+          body: useWideLayout ? buildTabletUI(context) : buildPhoneUI(context),
         );
       },
     );

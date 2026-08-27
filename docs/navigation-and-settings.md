@@ -39,6 +39,15 @@ These choices are maintained in `app/player_config/` and apply automatically at 
 
 On Android, the player marks the Flutter page as full-screen before requesting landscape orientation. This keeps the player and danmaku in one full-screen layer while the device rotates, instead of allowing the normal landscape two-column room layout to appear during the transition.
 
+The ordinary room page uses the available width instead of orientation alone to
+choose its layout. Android phones always use the single-column room page. On
+Windows, the two-column player/chat layout is enabled at 900 logical pixels or
+more; narrower windows use the phone-style single-column layout.
+
+Room refreshes and room switches invalidate their previous asynchronous requests.
+Player open, line switching, and stop operations are serialized so a late result
+from the previous room cannot replace the current player state.
+
 ## Build compatibility
 
 The verified toolchain is Flutter 3.44.6 with Dart 3.12.2. This matches the locked `volume_controller 3.6.0` SDK requirement and the native-asset hook format stored in the generated package state.

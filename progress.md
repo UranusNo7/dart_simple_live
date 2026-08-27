@@ -372,3 +372,51 @@ The command names in the preceding entry are intended to be read as plain text: 
 - The removed universal APK remains recoverable from the local `simple_live_app/build/dist/v1.11.10-fix/` copy.
 - Rollback: re-upload `simple_live_app-v1.11.10-fix-android.apk` from the local release directory, then delete the arm64-specific asset if universal distribution is restored.
 
+## 2026-08-28 - Task: Improve live-room stability, performance, and responsive UI
+
+### What was done
+
+- Added request-generation guards across live-room detail, SuperChat, danmaku callbacks, quality, and play URL loading so refreshes, room switches, and page closure invalidate stale asynchronous results.
+- Serialized player open, line jump, and stop operations; consolidated playback recovery and corrected player error handling to call the error callback path.
+- Switched ordinary live-room layout selection to a Windows width breakpoint while keeping Android phones single-column in landscape, and constrained fixed-size network image decoding to device-pixel dimensions with stable placeholders.
+- Added focused regression coverage for request invalidation, controller close invalidation, and Android/Windows layout selection.
+
+### Testing
+
+- `flutter test test/live_room_stability_test.dart --reporter expanded`: passed, 3 tests.
+- `flutter analyze --no-pub lib/modules/live_room/live_room_controller.dart lib/modules/live_room/live_room_page.dart lib/widgets/net_image.dart test/live_room_stability_test.dart`: passed with no issues.
+- `git diff --check`: passed.
+- Full physical Android profiling and high-rate danmaku profiling remain unavailable on this machine; message batching and pagination migration were intentionally not included.
+
+### Notes
+
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: added stale-request/lifecycle guards, serialized playback operations, and unified recovery.
+- `simple_live_app/lib/modules/live_room/live_room_page.dart`: changed ordinary layout selection to the platform-aware width breakpoint.
+- `simple_live_app/lib/widgets/net_image.dart`: added device-pixel decode sizing and fixed-size placeholders.
+- `simple_live_app/test/live_room_stability_test.dart`: added regression tests for request invalidation and layout behavior.
+- `docs/ui-performance-audit.md`: recorded the implemented stability, image, and responsive-layout changes plus deferred profiling items.
+- `docs/navigation-and-settings.md`: documented the room layout breakpoint and request/player sequencing behavior.
+- Rollback: revert the commit containing these five files and the two documentation updates; the prior arm64 release commit and release assets are unaffected.
+
+## 2026-08-28 - Task: Verify optimized Windows and Android release builds
+
+### What was done
+
+- Verified the optimized primary app builds on Windows Release and Android arm64-v8a Release using Flutter 3.44.6.
+- Used a task-local Gradle user home for Android because the machine-wide `aliyun-mirror.gradle` injects repositories that conflict with Flutter 3.44's settings repository policy; the project and global Gradle configuration were left unchanged.
+
+### Testing
+
+- `flutter build windows --release`: passed; generated `simple_live_app.exe`.
+- `flutter build apk --release --split-per-abi --target-platform android-arm64`: passed; generated `app-arm64-v8a-release.apk` (38.7 MB).
+- APK archive inspection: native libraries exist only under `lib/arm64-v8a/` (6 entries); SHA-256 `077BA7DD7942E9A17CD1DB830371029F0FA12E1AE5F3D451FD292971445AA4CF`.
+- Windows executable SHA-256 `3CBA4442EAB77809DDA94D75E29E1952545C4F513457ECF03FDC28998F979678`.
+- The first Android command failed only because of the machine-wide Gradle init script; the isolated rerun passed. The build emitted existing plugin deprecation/manifest warnings but no errors.
+
+### Notes
+
+- `simple_live_app/build/windows/x64/runner/Release/simple_live_app.exe`: local Windows Release verification output, not source.
+- `simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`: local arm64-v8a verification output, not source.
+- `simple_live_app/linux/flutter/generated_plugins.cmake`: restored after Flutter regenerated an unrelated `jni` entry during validation.
+- Rollback: no additional source rollback is required for the build verification; remove local build outputs with the normal project build cleanup if desired.
+

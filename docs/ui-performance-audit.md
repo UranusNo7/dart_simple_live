@@ -8,6 +8,18 @@ The review was source-based and used focused widget tests and static analysis. I
 
 ## Implemented changes
 
+- Live-room loading now uses request generations for room details, SuperChat data,
+  danmaku callbacks, quality lists, and play URLs. A newer refresh, room switch,
+  or page close invalidates older work before it can update the current room.
+- Player `open`, `jump`, and `stop` operations are serialized. Playback recovery
+  is guarded against duplicate end/error callbacks and player errors are routed
+  through the error callback instead of the normal completion callback.
+- Ordinary live-room layout now uses a width breakpoint on Windows. Android
+  phones keep the single-column layout even when the device is temporarily in
+  landscape; the wide two-column layout starts at 900 logical pixels on desktop.
+- Fixed-size network images automatically request a device-pixel-sized decode
+  when no explicit cache width is supplied. Loading and failure placeholders
+  keep the requested image bounds, reducing layout shifts.
 - Player control bars and lock controls keep their 200 ms duration but use `Curves.easeOutCubic` for a smoother stop.
 - Shared scroll-to-top behavior uses the same decelerating curve instead of linear motion.
 - Player SuperChat rendering uses one countdown timer per visible card. The previous implementation combined an overlay timer, a wrapper timer, and the card countdown stream.
@@ -22,6 +34,9 @@ The review was source-based and used focused widget tests and static analysis. I
 - Home, category, and search retain one controller per supported site. Their lifetime is bounded by the owning page controllers, and changing this to lazy controller creation would affect refresh and tab-state behavior. Profile data should justify that change first.
 - Live chat uses reactive list rebuilding, but the controller already coalesces scroll scheduling and trims messages after the hard limit. Any deeper change should be driven by Flutter DevTools frame and rebuild traces from a high-message-rate room.
 - Danmaku rendering and player streams remain untouched. They are core real-time paths and require device-level profile captures before changing scheduling or concurrency.
+- Message list batching remains intentionally deferred. The current reactive
+  list is bounded, but batching would trade UI rebuilds for message latency and
+  needs a high-rate room profile before changing that behavior.
 
 ## Verification
 
@@ -30,6 +45,8 @@ Run the focused checks from `simple_live_app`:
 ```powershell
 flutter test test/widget_test.dart test/page_views_test.dart --reporter expanded
 flutter analyze --no-pub lib/app/controller/base_controller.dart lib/widgets/superchat_card.dart lib/modules/live_room/player/player_controller.dart lib/modules/live_room/player/player_controls.dart test/widget_test.dart
+flutter test test/live_room_stability_test.dart --reporter expanded
+flutter analyze --no-pub lib/modules/live_room/live_room_controller.dart lib/modules/live_room/live_room_page.dart lib/widgets/net_image.dart test/live_room_stability_test.dart
 ```
 
 For runtime profiling, use a physical target or the Windows release/profile build. Capture Flutter DevTools frame timing while:

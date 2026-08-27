@@ -28,6 +28,30 @@ import 'package:simple_live_core/simple_live_core.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+class LiveRoomRequestGate {
+  int _generation = 0;
+  bool _closed = false;
+
+  int begin() {
+    return ++_generation;
+  }
+
+  void invalidate() {
+    _generation++;
+  }
+
+  void close() {
+    _closed = true;
+    _generation++;
+  }
+
+  int get current => _generation;
+
+  bool isCurrent(int generation) {
+    return !_closed && generation == _generation;
+  }
+}
+
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   static const int kMaxMessagesSoftLimit = 200;
   static const int kMaxMessagesHardLimit = 1000;
@@ -113,6 +137,13 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var liveDuration = "00:00:00".obs;
   Timer? _liveDurationTimer;
 
+  final LiveRoomRequestGate _roomRequestGate = LiveRoomRequestGate();
+  final LiveRoomRequestGate _playbackRequestGate = LiveRoomRequestGate();
+  Future<void> _playerOperation = Future<void>.value();
+  int? _activePlaybackRequest;
+  bool _mediaRecoveryInProgress = false;
+  bool _closed = false;
+
   @override
   void onInit() {
     WidgetsBinding.instance.addObserver(this);
@@ -122,7 +153,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     initAutoExit();
     showDanmakuState.value = AppSettingsController.instance.danmuEnable.value;
     followed.value = DBService.instance.getFollowExist("${site.id}_$roomId");
-    loadData();
+    unawaited(loadData());
 
     scrollController.addListener(scrollListener);
 
@@ -181,12 +212,16 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
   // 弹窗逻辑
 
-  void refreshRoom() {
+  Future<void> refreshRoom() async {
     //messages.clear();
+    _roomRequestGate.invalidate();
     superChats.clear();
     liveDanmaku.stop();
 
-    loadData();
+    await _stopPlayer();
+    if (!_closed) {
+      await loadData();
+    }
   }
 
   /// 聊天栏始终滚动到底部
@@ -201,10 +236,22 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   /// 初始化弹幕接收事件
-  void initDanmau() {
-    liveDanmaku.onMessage = onWSMessage;
-    liveDanmaku.onClose = onWSClose;
-    liveDanmaku.onReady = onWSReady;
+  void initDanmau(int roomRequest) {
+    liveDanmaku.onMessage = (msg) {
+      if (_roomRequestGate.isCurrent(roomRequest)) {
+        onWSMessage(msg);
+      }
+    };
+    liveDanmaku.onClose = (msg) {
+      if (_roomRequestGate.isCurrent(roomRequest)) {
+        onWSClose(msg);
+      }
+    };
+    liveDanmaku.onReady = () {
+      if (_roomRequestGate.isCurrent(roomRequest)) {
+        onWSReady();
+      }
+    };
   }
 
   /// 接收到WebSocket信息
@@ -275,77 +322,145 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   /// 加载直播间信息
-  void loadData() async {
+  Future<void> loadData() async {
+    if (_closed) {
+      return;
+    }
+
+    final roomRequest = _roomRequestGate.begin();
+    final playbackRequest = _beginPlaybackRequest();
+    final requestSite = site;
+    final requestRoomId = roomId;
+
     try {
       SmartDialog.showLoading(msg: "");
       loadError.value = false;
       error = null;
       update();
       addSysMsg("正在读取直播间信息");
-      detail.value = await site.liveSite.getRoomDetail(roomId: roomId);
+      final roomDetail =
+          await requestSite.liveSite.getRoomDetail(roomId: requestRoomId);
+      if (!_isCurrentRoomRequest(roomRequest)) {
+        return;
+      }
+      detail.value = roomDetail;
 
-      if (site.id == Constant.kDouyin) {
+      var effectiveRoomId = requestRoomId;
+      if (requestSite.id == Constant.kDouyin) {
         // 1.6.0之前收藏的WebRid
         // 1.6.0收藏的RoomID
         // 1.6.0之后改回WebRid
-        if (detail.value!.roomId != roomId) {
-          var oldId = roomId;
-          rxRoomId.value = detail.value!.roomId;
+        if (roomDetail.roomId != requestRoomId) {
+          final oldId = requestRoomId;
+          effectiveRoomId = roomDetail.roomId;
+          rxRoomId.value = effectiveRoomId;
           if (followed.value) {
             // 更新关注列表
-            DBService.instance.deleteFollow("${site.id}_$oldId");
+            DBService.instance.deleteFollow("${requestSite.id}_$oldId");
             DBService.instance.addFollow(
               FollowUser(
-                id: "${site.id}_$roomId",
-                roomId: roomId,
-                siteId: site.id,
-                userName: detail.value!.userName,
-                face: detail.value!.userAvatar,
+                id: "${requestSite.id}_$effectiveRoomId",
+                roomId: effectiveRoomId,
+                siteId: requestSite.id,
+                userName: roomDetail.userName,
+                face: roomDetail.userAvatar,
                 addTime: DateTime.now(),
               ),
             );
           } else {
-            followed.value =
-                DBService.instance.getFollowExist("${site.id}_$roomId");
+            followed.value = DBService.instance
+                .getFollowExist("${requestSite.id}_$effectiveRoomId");
           }
         }
       }
 
-      getSuperChatMessage();
-
-      addHistory();
-      // 确认房间关注状态
-      followed.value = DBService.instance.getFollowExist("${site.id}_$roomId");
-      online.value = detail.value!.online;
-      liveStatus.value = detail.value!.status || detail.value!.isRecord;
-      if (liveStatus.value) {
-        getPlayQualites();
+      if (!_isCurrentRoomRequest(roomRequest)) {
+        return;
       }
-      if (detail.value!.isRecord) {
+
+      unawaited(
+        _getSuperChatMessage(
+          roomRequest: roomRequest,
+          requestSite: requestSite,
+          roomDetail: roomDetail,
+        ),
+      );
+
+      addHistory(
+        roomDetail: roomDetail,
+        requestSite: requestSite,
+        roomId: effectiveRoomId,
+      );
+      // 确认房间关注状态
+      followed.value = DBService.instance
+          .getFollowExist("${requestSite.id}_$effectiveRoomId");
+      online.value = roomDetail.online;
+      liveStatus.value = roomDetail.status || roomDetail.isRecord;
+      if (roomDetail.isRecord) {
         addSysMsg("当前主播未开播，正在轮播录像");
       }
       addSysMsg("开始连接弹幕服务器");
-      initDanmau();
-      liveDanmaku.start(detail.value?.danmakuData);
+      initDanmau(roomRequest);
+      liveDanmaku.start(roomDetail.danmakuData);
       startLiveDurationTimer(); // 启动开播时长定时器
+
+      if (liveStatus.value) {
+        await _loadPlayQualities(
+          roomRequest: roomRequest,
+          playbackRequest: playbackRequest,
+          requestSite: requestSite,
+          roomDetail: roomDetail,
+        );
+      }
     } catch (e) {
+      if (!_isCurrentRoomRequest(roomRequest)) {
+        return;
+      }
       Log.logPrint(e);
       //SmartDialog.showToast(e.toString());
       loadError.value = true;
       error = e is Error ? e : null;
     } finally {
-      SmartDialog.dismiss(status: SmartStatus.loading);
+      if (_isCurrentRoomRequest(roomRequest)) {
+        SmartDialog.dismiss(status: SmartStatus.loading);
+      }
     }
   }
 
   /// 初始化播放器
-  void getPlayQualites() async {
+  Future<void> getPlayQualites() async {
+    final roomDetail = detail.value;
+    if (roomDetail == null) {
+      return;
+    }
+    final playbackRequest = _beginPlaybackRequest();
+    await _loadPlayQualities(
+      roomRequest: _roomRequestGate.current,
+      playbackRequest: playbackRequest,
+      requestSite: site,
+      roomDetail: roomDetail,
+    );
+  }
+
+  Future<void> _loadPlayQualities({
+    required int roomRequest,
+    required int playbackRequest,
+    required Site requestSite,
+    required LiveRoomDetail roomDetail,
+  }) async {
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
     qualites.clear();
     currentQuality = -1;
 
     try {
-      var playQualites =
-          await site.liveSite.getPlayQualites(detail: detail.value!);
+      final playQualites =
+          await requestSite.liveSite.getPlayQualites(detail: roomDetail);
+
+      if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        return;
+      }
 
       if (playQualites.isEmpty) {
         SmartDialog.showToast("无法读取播放清晰度");
@@ -361,12 +476,21 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         currentQuality = playQualites.length - 1;
       } else {
         //中间值
-        int middle = (playQualites.length / 2).floor();
+        final middle = (playQualites.length / 2).floor();
         currentQuality = middle;
       }
 
-      getPlayUrl();
+      await _loadPlayUrl(
+        roomRequest: roomRequest,
+        playbackRequest: playbackRequest,
+        requestSite: requestSite,
+        roomDetail: roomDetail,
+        quality: playQualites[currentQuality],
+      );
     } catch (e) {
+      if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        return;
+      }
       Log.logPrint(e);
       SmartDialog.showToast("无法读取播放清晰度");
     }
@@ -386,13 +510,49 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     return qualityLevel;
   }
 
-  void getPlayUrl() async {
+  void getPlayUrl() {
+    unawaited(_reloadPlayUrl());
+  }
+
+  Future<void> _reloadPlayUrl() async {
+    final roomDetail = detail.value;
+    final qualityIndex = currentQuality;
+    if (roomDetail == null ||
+        qualityIndex < 0 ||
+        qualityIndex >= qualites.length) {
+      return;
+    }
+
+    final playbackRequest = _beginPlaybackRequest();
+    await _loadPlayUrl(
+      roomRequest: _roomRequestGate.current,
+      playbackRequest: playbackRequest,
+      requestSite: site,
+      roomDetail: roomDetail,
+      quality: qualites[qualityIndex],
+    );
+  }
+
+  Future<void> _loadPlayUrl({
+    required int roomRequest,
+    required int playbackRequest,
+    required Site requestSite,
+    required LiveRoomDetail roomDetail,
+    required LivePlayQuality quality,
+  }) async {
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
+
     playUrls.clear();
-    currentQualityInfo.value = qualites[currentQuality].quality;
+    currentQualityInfo.value = quality.quality;
     currentLineInfo.value = "";
     currentLineIndex = -1;
-    var playUrl = await site.liveSite
-        .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
+    final playUrl = await requestSite.liveSite
+        .getPlayUrls(detail: roomDetail, quality: quality);
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
     if (playUrl.urls.isEmpty) {
       SmartDialog.showToast("无法读取播放地址");
       return;
@@ -403,95 +563,269 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     //重置错误次数
     mediaErrorRetryCount = 0;
-    initPlaylist();
+    await _initPlaylist(
+      roomRequest: roomRequest,
+      playbackRequest: playbackRequest,
+    );
   }
 
   void changePlayLine(int index) {
+    if (index < 0 || index >= playUrls.length) {
+      return;
+    }
     currentLineIndex = index;
     //重置错误次数
     mediaErrorRetryCount = 0;
-    setPlayer();
+    final playbackRequest = _beginPlaybackRequest();
+    unawaited(
+      _setPlayer(
+        roomRequest: _roomRequestGate.current,
+        playbackRequest: playbackRequest,
+        lineIndex: index,
+      ),
+    );
   }
 
-  void initPlaylist() async {
+  Future<void> _initPlaylist({
+    required int roomRequest,
+    required int playbackRequest,
+  }) async {
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
 
     final mediaList =
         playUrls.map((url) => Media(url, httpHeaders: playHeaders)).toList();
 
-    // 初始化播放器并设置 ao 参数
-    await initializePlayer();
-
-    await player.open(Playlist(mediaList));
+    var opened = false;
+    try {
+      await _enqueuePlayerOperation(() async {
+        if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+          return;
+        }
+        // 初始化播放器并设置 ao 参数
+        await initializePlayer();
+        if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+          return;
+        }
+        await player.open(Playlist(mediaList));
+        opened = true;
+      });
+      if (opened && _isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        _activePlaybackRequest = playbackRequest;
+      }
+    } catch (e) {
+      if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        return;
+      }
+      Log.logPrint(e);
+      errorMsg.value = "播放失败";
+    }
   }
 
-  void setPlayer() async {
+  void setPlayer() {
+    if (currentLineIndex < 0 || currentLineIndex >= playUrls.length) {
+      return;
+    }
+    final playbackRequest = _beginPlaybackRequest();
+    unawaited(
+      _setPlayer(
+        roomRequest: _roomRequestGate.current,
+        playbackRequest: playbackRequest,
+        lineIndex: currentLineIndex,
+      ),
+    );
+  }
+
+  Future<void> _setPlayer({
+    required int roomRequest,
+    required int playbackRequest,
+    required int lineIndex,
+  }) async {
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
 
-    await player.jump(currentLineIndex);
+    var jumped = false;
+    try {
+      await _enqueuePlayerOperation(() async {
+        if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+          return;
+        }
+        await player.jump(lineIndex);
+        jumped = true;
+      });
+      if (jumped && _isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        _activePlaybackRequest = playbackRequest;
+      }
+    } catch (e) {
+      if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+        return;
+      }
+      Log.logPrint(e);
+      errorMsg.value = "播放失败";
+    }
   }
 
   @override
-  void mediaEnd() async {
+  void mediaEnd() {
     super.mediaEnd();
-    if (mediaErrorRetryCount < 2) {
-      Log.d("播放结束，尝试第${mediaErrorRetryCount + 1}次刷新");
-      if (mediaErrorRetryCount == 1) {
-        //延迟一秒再刷新
-        await Future.delayed(const Duration(seconds: 1));
-      }
-      mediaErrorRetryCount += 1;
-      //刷新一次
-      setPlayer();
-      return;
-    }
-
-    Log.d("播放结束");
-    // 遍历线路，如果全部链接都断开就是直播结束了
-    if (playUrls.length - 1 == currentLineIndex) {
-      liveStatus.value = false;
-    } else {
-      changePlayLine(currentLineIndex + 1);
-
-      //setPlayer();
-    }
+    _handleMediaFailure();
   }
 
   int mediaErrorRetryCount = 0;
+
   @override
-  void mediaError(String error) async {
-    super.mediaEnd();
-    if (mediaErrorRetryCount < 2) {
-      Log.d("播放失败，尝试第${mediaErrorRetryCount + 1}次刷新");
-      if (mediaErrorRetryCount == 1) {
-        //延迟一秒再刷新
-        await Future.delayed(const Duration(seconds: 1));
-      }
-      mediaErrorRetryCount += 1;
-      //刷新一次
-      setPlayer();
+  void mediaError(String error) {
+    super.mediaError(error);
+    _handleMediaFailure(error: error);
+  }
+
+  void _handleMediaFailure({String? error}) {
+    if (_mediaRecoveryInProgress || _activePlaybackRequest == null) {
       return;
     }
+    final roomRequest = _roomRequestGate.current;
+    final playbackRequest = _activePlaybackRequest!;
+    if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
+      return;
+    }
+    _mediaRecoveryInProgress = true;
+    unawaited(
+      _recoverMedia(
+        roomRequest: roomRequest,
+        playbackRequest: playbackRequest,
+        error: error,
+      ),
+    );
+  }
 
-    if (playUrls.length - 1 == currentLineIndex) {
-      errorMsg.value = "播放失败";
-      SmartDialog.showToast("播放失败:$error");
-    } else {
-      //currentLineIndex += 1;
-      //setPlayer();
-      changePlayLine(currentLineIndex + 1);
+  Future<void> _recoverMedia({
+    required int roomRequest,
+    required int playbackRequest,
+    String? error,
+  }) async {
+    try {
+      if (mediaErrorRetryCount < 2) {
+        Log.d(
+          error == null
+              ? "播放结束，尝试第${mediaErrorRetryCount + 1}次刷新"
+              : "播放失败，尝试第${mediaErrorRetryCount + 1}次刷新",
+        );
+        if (mediaErrorRetryCount == 1) {
+          //延迟一秒再刷新
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
+            _activePlaybackRequest != playbackRequest) {
+          return;
+        }
+        mediaErrorRetryCount += 1;
+        final nextPlaybackRequest = _beginPlaybackRequest();
+        await _setPlayer(
+          roomRequest: roomRequest,
+          playbackRequest: nextPlaybackRequest,
+          lineIndex: currentLineIndex,
+        );
+        return;
+      }
+
+      if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
+          _activePlaybackRequest != playbackRequest ||
+          playUrls.isEmpty ||
+          currentLineIndex < 0 ||
+          currentLineIndex >= playUrls.length) {
+        return;
+      }
+
+      if (playUrls.length - 1 == currentLineIndex) {
+        _activePlaybackRequest = null;
+        if (error == null) {
+          liveStatus.value = false;
+        } else {
+          errorMsg.value = "播放失败";
+          SmartDialog.showToast("播放失败:$error");
+        }
+      } else {
+        final nextLineIndex = currentLineIndex + 1;
+        currentLineIndex = nextLineIndex;
+        mediaErrorRetryCount = 0;
+        final nextPlaybackRequest = _beginPlaybackRequest();
+        await _setPlayer(
+          roomRequest: roomRequest,
+          playbackRequest: nextPlaybackRequest,
+          lineIndex: nextLineIndex,
+        );
+      }
+    } finally {
+      _mediaRecoveryInProgress = false;
+    }
+  }
+
+  int _beginPlaybackRequest() {
+    final request = _playbackRequestGate.begin();
+    _activePlaybackRequest = null;
+    return request;
+  }
+
+  bool _isCurrentRoomRequest(int request) {
+    return !_closed && _roomRequestGate.isCurrent(request);
+  }
+
+  bool _isCurrentPlaybackRequest(int roomRequest, int playbackRequest) {
+    return _isCurrentRoomRequest(roomRequest) &&
+        _playbackRequestGate.isCurrent(playbackRequest);
+  }
+
+  Future<void> _enqueuePlayerOperation(
+    Future<void> Function() operation,
+  ) {
+    final next = _playerOperation.then<void>((_) => operation());
+    _playerOperation = next.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        Log.logPrint(error);
+      },
+    );
+    return next;
+  }
+
+  Future<void> _stopPlayer() async {
+    _beginPlaybackRequest();
+    try {
+      await _enqueuePlayerOperation(() async {
+        if (!_closed) {
+          await player.stop();
+        }
+      });
+    } catch (e) {
+      if (!_closed) {
+        Log.logPrint(e);
+      }
     }
   }
 
   /// 读取SC
-  void getSuperChatMessage() async {
+  Future<void> _getSuperChatMessage({
+    required int roomRequest,
+    required Site requestSite,
+    required LiveRoomDetail roomDetail,
+  }) async {
     try {
-      var sc =
-          await site.liveSite.getSuperChatMessage(roomId: detail.value!.roomId);
+      final sc = await requestSite.liveSite
+          .getSuperChatMessage(roomId: roomDetail.roomId);
+      if (!_isCurrentRoomRequest(roomRequest)) {
+        return;
+      }
       superChats.addAll(sc);
     } catch (e) {
+      if (!_isCurrentRoomRequest(roomRequest)) {
+        return;
+      }
       Log.logPrint(e);
       addSysMsg("SC读取失败");
     }
@@ -505,11 +839,12 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   /// 添加历史记录
-  void addHistory() {
-    if (detail.value == null) {
-      return;
-    }
-    var id = "${site.id}_$roomId";
+  void addHistory({
+    required LiveRoomDetail roomDetail,
+    required Site requestSite,
+    required String roomId,
+  }) {
+    final id = "${requestSite.id}_$roomId";
     var history = DBService.instance.getHistory(id);
     if (history != null) {
       history.updateTime = DateTime.now();
@@ -517,9 +852,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     history ??= History(
       id: id,
       roomId: roomId,
-      siteId: site.id,
-      userName: detail.value?.userName ?? "",
-      face: detail.value?.userAvatar ?? "",
+      siteId: requestSite.id,
+      userName: roomDetail.userName,
+      face: roomDetail.userAvatar,
       updateTime: DateTime.now(),
     );
 
@@ -577,13 +912,27 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   /// 复制新生成的直播流
-  void copyPlayUrl() async {
+  void copyPlayUrl() {
+    unawaited(_copyPlayUrl());
+  }
+
+  Future<void> _copyPlayUrl() async {
     // 未开播不复制
-    if (!liveStatus.value) {
+    final roomDetail = detail.value;
+    final qualityIndex = currentQuality;
+    if (!liveStatus.value ||
+        roomDetail == null ||
+        qualityIndex < 0 ||
+        qualityIndex >= qualites.length) {
       return;
     }
-    var playUrl = await site.liveSite
-        .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
+    final roomRequest = _roomRequestGate.current;
+    final requestSite = site;
+    final playUrl = await requestSite.liveSite
+        .getPlayUrls(detail: roomDetail, quality: qualites[qualityIndex]);
+    if (!_isCurrentRoomRequest(roomRequest)) {
+      return;
+    }
     if (playUrl.urls.isEmpty) {
       SmartDialog.showToast("无法读取播放地址");
       return;
@@ -960,13 +1309,14 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
   }
 
-  void resetRoom(Site site, String roomId) async {
+  Future<void> resetRoom(Site site, String roomId) async {
     if (this.site == site && this.roomId == roomId) {
       return;
     }
 
     rxSite.value = site;
     rxRoomId.value = roomId;
+    _roomRequestGate.invalidate();
 
     // 清除全部消息
     liveDanmaku.stop();
@@ -978,10 +1328,13 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     liveDanmaku = site.liveSite.getDanmaku();
 
     // 停止播放
-    await player.stop();
+    await _stopPlayer();
+    if (_closed) {
+      return;
+    }
 
     // 刷新信息
-    loadData();
+    await loadData();
 
     // 恢复弹幕
     danmakuController?.resume();
@@ -1048,6 +1401,10 @@ ${error?.stackTrace}''');
 
   @override
   void onClose() {
+    _closed = true;
+    _roomRequestGate.close();
+    _playbackRequestGate.close();
+    _activePlaybackRequest = null;
     WidgetsBinding.instance.removeObserver(this);
     scrollController.removeListener(scrollListener);
     scrollController.dispose();
