@@ -420,3 +420,25 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `simple_live_app/linux/flutter/generated_plugins.cmake`: restored after Flutter regenerated an unrelated `jni` entry during validation.
 - Rollback: no additional source rollback is required for the build verification; remove local build outputs with the normal project build cleanup if desired.
 
+## 2026-08-28 - Task: Publish v1.11.11-fix from local Windows and Android builds
+
+### What was done
+
+- Created and pushed tag `v1.11.11-fix` at optimized commit `1572360b90007ca7398b0f63c976e15a0606341c` on the legacy repository.
+- Published the local Windows portable ZIP and local Android arm64-v8a APK as the formal GitHub Release `v1.11.11-fix`.
+- Cancelled the tag-triggered Actions run after it stalled during Flutter setup so that cloud-generated assets could not replace or duplicate the requested local artifacts.
+
+### Testing
+
+- Local `flutter build windows --release`: passed; Windows ZIP is 38,050,829 bytes with SHA-256 `BF51BF7C4E54710EB069CE3E89A6B9645E5D278427BA07358BF4007B840B0A0C`.
+- Local `flutter build apk --release --split-per-abi --target-platform android-arm64`: passed; APK is 40,546,843 bytes with SHA-256 `077BA7DD7942E9A17CD1DB830371029F0FA12E1AE5F3D451FD292971445AA4CF`.
+- APK inspection confirmed six native entries under `lib/arm64-v8a/` and no other ABI directories.
+- GitHub Release API confirmed `draft=false`, `prerelease=false`, both assets `state=uploaded`, exactly two assets, and remote digests matching the local hashes.
+- Remote tag `v1.11.11-fix` resolves to `1572360b90007ca7398b0f63c976e15a0606341c`.
+
+### Notes
+
+- `progress.md`: recorded the tag, local artifacts, workflow cancellation, and Release verification evidence.
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.11-fix
+- Rollback: delete the `v1.11.11-fix` Release and tag with `gh release delete v1.11.11-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.11-fix`; source rollback point is the parent of commit `1572360`.
+
