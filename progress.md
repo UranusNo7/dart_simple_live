@@ -468,3 +468,23 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `simple_live_app/lib/modules/live_room/live_room_controller.dart`: URL refresh recovery and no-video watchdog.
 - Rollback: revert this commit; no release tag was created for it.
 
+## 2026-10-05 - Task: Verify playback fixes on GitHub Actions
+
+### What was done
+
+- Pushed branch `fix/live-playback-recovery` (commit `0b104d8`) to `UranusNo7/dart_simple_live` and dispatched `publish_app_release.yml` with Android enabled.
+- Cloud build run `37218307887` completed with conclusion `success`: Windows Release and Android arm64-v8a Release both compiled.
+- Both artifacts are uploaded to prerelease `dev-0b104d8`, not a formal release.
+
+### Testing
+
+- `build-windows`: success; `simple_live_app-dev-0b104d8-windows.zip` (37,261,756 bytes, `state=uploaded`).
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,412 bytes, `state=uploaded`).
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37218307887
+
+### Notes
+
+- The stale `origin` remote (`dart_simple_live_fork.git`) does not exist; the working remote is `legacy` (`UranusNo7/dart_simple_live`).
+- A stale August cherry-pick sequencer was cleared with `git cherry-pick --quit`; it did not touch history or the working tree.
+- Rollback: delete prerelease `dev-0b104d8` if it should not remain; source rollback is the parent of `0b104d8`.
+
