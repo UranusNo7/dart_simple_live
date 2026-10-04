@@ -141,14 +141,34 @@ class DouyuSite implements LiveSite {
     required LiveRoomDetail detail,
     required LivePlayQuality quality,
   }) async {
-    var args = detail.data.toString();
     var data = quality.data as DouyuPlayData;
 
-    var results = await Future.wait(
-      data.cdns.map((cdn) => getPlayUrl(detail.roomId, args, data.rate, cdn)),
+    var urls = await _getPlayUrls(
+      detail.roomId,
+      detail.data.toString(),
+      data,
     );
-    var urls = results.where((url) => url.isNotEmpty).toList();
+    // detail.data 里的 sign 是进入直播间时生成的，有时效，
+    // 长时间播放后已过期，重新取 crptext 签名后重试一次
+    if (urls.isEmpty) {
+      urls = await _getPlayUrls(
+        detail.roomId,
+        await _getSignArgs(detail.roomId),
+        data,
+      );
+    }
     return LivePlayUrl(urls: urls);
+  }
+
+  Future<List<String>> _getPlayUrls(
+    String roomId,
+    String args,
+    DouyuPlayData data,
+  ) async {
+    var results = await Future.wait(
+      data.cdns.map((cdn) => getPlayUrl(roomId, args, data.rate, cdn)),
+    );
+    return results.where(isValidPlayUrl).toList();
   }
 
   Future<String> getPlayUrl(
@@ -157,10 +177,9 @@ class DouyuSite implements LiveSite {
     int rate,
     String cdn,
   ) async {
-    args += "&cdn=$cdn&rate=$rate";
     var result = await HttpClient.instance.postJson(
       "https://www.douyu.com/lapi/live/getH5Play/$roomId",
-      data: args,
+      data: "$args&cdn=$cdn&rate=$rate",
       header: {
         'referer': 'https://www.douyu.com/$roomId',
         'user-agent':
@@ -169,7 +188,46 @@ class DouyuSite implements LiveSite {
       formUrlEncoded: true,
     );
 
-    return "${result["data"]["rtmp_url"]}/${_htmlUnescape.convert(result["data"]["rtmp_live"].toString())}";
+    return parsePlayUrl(result);
+  }
+
+  /// 解析 getH5Play 的返回，接口报错或播放地址为空时返回空字符串
+  static String parsePlayUrl(dynamic result) {
+    if (result is! Map) {
+      return "";
+    }
+    var error = result["error"];
+    if (error != null && error.toString() != "0") {
+      return "";
+    }
+    var data = result["data"];
+    if (data is! Map) {
+      return "";
+    }
+    var rtmpUrl = data["rtmp_url"]?.toString() ?? "";
+    var rtmpLive = _htmlUnescape.convert(data["rtmp_live"]?.toString() ?? "");
+    if (rtmpUrl.isEmpty || rtmpLive.isEmpty) {
+      return "";
+    }
+    return "$rtmpUrl/$rtmpLive";
+  }
+
+  /// 过滤接口报错时拼出来的 "/" 、"null/xxx" 之类的无效地址
+  static bool isValidPlayUrl(String url) =>
+      url.contains("://") && !url.startsWith("null");
+
+  Future<String> _getSignArgs(String roomId) async {
+    var jsEncResult = await HttpClient.instance.getText(
+      "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
+      queryParameters: {},
+      header: {
+        'referer': 'https://www.douyu.com/$roomId',
+        'user-agent':
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
+      },
+    );
+    var crptext = json.decode(jsEncResult)["data"]["room$roomId"].toString();
+    return DouyuSign.getSign(crptext, roomId);
   }
 
   @override
@@ -212,16 +270,7 @@ class DouyuSite implements LiveSite {
     );
     String? showTime = h5RoomInfo["data"]?["show_time"]?.toString();
 
-    var jsEncResult = await HttpClient.instance.getText(
-      "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
-      queryParameters: {},
-      header: {
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-      },
-    );
-    var crptext = json.decode(jsEncResult)["data"]["room$roomId"].toString();
+    var signArgs = await _getSignArgs(roomId);
 
     return LiveRoomDetail(
       cover: roomInfo["room_pic"].toString(),
@@ -234,7 +283,7 @@ class DouyuSite implements LiveSite {
       notice: "",
       status: roomInfo["show_status"] == 1 && roomInfo["videoLoop"] != 1,
       danmakuData: roomInfo["room_id"].toString(),
-      data: DouyuSign.getSign(crptext, roomInfo["room_id"].toString()),
+      data: signArgs,
       url: "https://www.douyu.com/$roomId",
       isRecord: roomInfo["videoLoop"] == 1,
       showTime: showTime,

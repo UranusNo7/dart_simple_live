@@ -217,10 +217,17 @@ class HuyaSite implements LiveSite {
       required LivePlayQuality quality}) async {
     var ls = <String>[];
     var lines = quality.data["urls"] as List;
+    // 同一房间的所有线路共用同一个 streamName，按 streamName 合并令牌请求
+    var tokens = <String, Future<String>>{};
     var urls = await Future.wait(
-      lines.map((element) {
+      lines.map((element) async {
         var line = element as HuyaLineModel;
-        return getPlayUrl(line, quality.data["bitRate"]);
+        var token = tokens.putIfAbsent(
+          line.streamName,
+          () => getCndTokenInfoEx(line.streamName),
+        );
+        var antiCode = await token;
+        return buildPlayUrl(line, quality.data["bitRate"], antiCode);
       }),
     );
     ls.addAll(urls);
@@ -234,6 +241,11 @@ class HuyaSite implements LiveSite {
 
   Future<String> getPlayUrl(HuyaLineModel line, int bitRate) async {
     var antiCode = await getCndTokenInfoEx(line.streamName);
+    return buildPlayUrl(line, bitRate, antiCode);
+  }
+
+  /// [antiCode] 为 WUP 返回的 sFlvToken，返回最终播放地址
+  String buildPlayUrl(HuyaLineModel line, int bitRate, String antiCode) {
     antiCode = buildAntiCode(line.streamName, line.presenterUid, antiCode);
     var url = '${line.line}/${line.streamName}.flv?${antiCode}&codec=264';
     if (bitRate > 0) {
@@ -248,12 +260,17 @@ class HuyaSite implements LiveSite {
   /// return ture anticode
   String buildAntiCode(String stream, int presenterUid, String antiCode) {
     var mapAnti = Uri(query: antiCode).queryParametersAll;
-    if (!mapAnti.containsKey("fm")) {
+    // 签名所需的字段缺失时无法重签，原样返回服务端令牌
+    if (!mapAnti.containsKey("fm") ||
+        !mapAnti.containsKey("wsTime") ||
+        !mapAnti.containsKey("fs")) {
       return antiCode;
     }
 
     var ctype = mapAnti["ctype"]?.first ?? "huya_pc_exe";
-    var platformId = int.tryParse(mapAnti["t"]?.first ?? "0");
+    // WUP 返回的令牌不带 t 字段，缺失时按客户端类型推导
+    var platformId =
+        int.tryParse(mapAnti["t"]?.first ?? "") ?? _platformIdFromCtype(ctype);
 
     bool isWap = platformId == 103;
     var clacStartTime = DateTime.now().millisecondsSinceEpoch;
@@ -302,6 +319,9 @@ class HuyaSite implements LiveSite {
 
     return antiCodeRes.entries.map((e) => '${e.key}=${e.value}').join('&');
   }
+
+  /// 虎牙平台 id：huya_com 为 WAP 103，huya_pc_exe 为 PC 100
+  int _platformIdFromCtype(String ctype) => ctype == "huya_com" ? 103 : 100;
 
   /// return sFlvToken
   Future<String> getCndTokenInfoEx(String stream) async {

@@ -453,6 +453,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
     qualites.clear();
     currentQuality = -1;
+    playUrlRefreshCount = 0;
 
     try {
       final playQualites =
@@ -511,6 +512,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   void getPlayUrl() {
+    playUrlRefreshCount = 0;
     unawaited(_reloadPlayUrl());
   }
 
@@ -615,6 +617,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       });
       if (opened && _isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
         _activePlaybackRequest = playbackRequest;
+        _startNoVideoWatchdog(playbackRequest);
       }
     } catch (e) {
       if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
@@ -679,6 +682,12 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   int mediaErrorRetryCount = 0;
 
+  /// 播放地址带签名，会随时间失效，重新获取播放地址的次数上限
+  int playUrlRefreshCount = 0;
+
+  /// 播放已打开但一直收不到画面的兜底计时器
+  Timer? _noVideoTimer;
+
   @override
   void mediaError(String error) {
     super.mediaError(error);
@@ -734,6 +743,20 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         return;
       }
 
+      // 同一条地址重试后仍然失败，多半是播放地址过期，重新获取后再试
+      if (playUrlRefreshCount < 1 &&
+          _isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
+          _activePlaybackRequest == playbackRequest &&
+          playUrls.isNotEmpty &&
+          currentQuality >= 0 &&
+          currentQuality < qualites.length) {
+        Log.d("播放失败，重新获取播放地址");
+        playUrlRefreshCount += 1;
+        mediaErrorRetryCount = 0;
+        await _reloadPlayUrl();
+        return;
+      }
+
       if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
           _activePlaybackRequest != playbackRequest ||
           playUrls.isEmpty ||
@@ -767,9 +790,24 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   int _beginPlaybackRequest() {
+    _noVideoTimer?.cancel();
     final request = _playbackRequestGate.begin();
     _activePlaybackRequest = null;
     return request;
+  }
+
+  /// 播放打开后长时间没有画面时按播放失败处理，走重新获取播放地址的恢复流程
+  void _startNoVideoWatchdog(int playbackRequest) {
+    _noVideoTimer?.cancel();
+    _noVideoTimer = Timer(const Duration(seconds: 15), () {
+      if (!_isCurrentPlaybackRequest(_roomRequestGate.current, playbackRequest) ||
+          _activePlaybackRequest != playbackRequest ||
+          player.state.width != null) {
+        return;
+      }
+      Log.d("播放已打开但未收到视频画面");
+      _handleMediaFailure(error: "未收到视频画面");
+    });
   }
 
   bool _isCurrentRoomRequest(int request) {
@@ -1409,6 +1447,7 @@ ${error?.stackTrace}''');
     scrollController.removeListener(scrollListener);
     scrollController.dispose();
     autoExitTimer?.cancel();
+    _noVideoTimer?.cancel();
 
     liveDanmaku.stop();
     danmakuController = null;

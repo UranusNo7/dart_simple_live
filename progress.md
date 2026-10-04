@@ -442,3 +442,29 @@ The command names in the preceding entry are intended to be read as plain text: 
 - Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.11-fix
 - Rollback: delete the `v1.11.11-fix` Release and tag with `gh release delete v1.11.11-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.11-fix`; source rollback point is the parent of commit `1572360`.
 
+## 2026-10-05 - Task: Fix Douyu playback disconnects and Huya black-screen entry
+
+### What was done
+
+- Douyu now validates `getH5Play` responses, rejects empty/garbage URLs, and refreshes an expired room signature once before returning an empty playlist.
+- Huya now merges token requests by stream name, avoids crashing on incomplete anti-code fields, and derives a usable platform id when WUP omits `t`.
+- The live-room controller refreshes the play URL after cached-line retries fail and recovers when playback opens without receiving video dimensions.
+
+### Testing
+
+- `dart analyze lib/modules/live_room/live_room_controller.dart`: no issues.
+- `dart analyze lib/src/douyu_site.dart`: no issues.
+- `dart test test/douyu_play_url_test.dart test/douyu_danmaku_reconnect_test.dart`: 11/11 passed.
+- `dart analyze lib/src/huya_site.dart`: 4 pre-existing warnings remain; no new issues.
+- `dart test test/huya_play_url_test.dart`: 8/8 passed.
+- GitHub Actions compilation is still pending.
+
+### Notes
+
+- `simple_live_core/lib/src/douyu_site.dart`: response validation, expired-sign retry, and refactored sign handling.
+- `simple_live_core/test/douyu_play_url_test.dart`: new offline regression coverage.
+- `simple_live_core/lib/src/huya_site.dart`: token-request merging, anti-code validation, and platform-id derivation.
+- `simple_live_core/test/huya_play_url_test.dart`: new offline regression coverage.
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: URL refresh recovery and no-video watchdog.
+- Rollback: revert this commit; no release tag was created for it.
+
