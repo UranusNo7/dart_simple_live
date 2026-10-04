@@ -488,3 +488,23 @@ The command names in the preceding entry are intended to be read as plain text: 
 - A stale August cherry-pick sequencer was cleared with `git cherry-pick --quit`; it did not touch history or the working tree.
 - Rollback: delete prerelease `dev-0b104d8` if it should not remain; source rollback is the parent of `0b104d8`.
 
+## 2026-10-05 - Task: Publish v1.11.12-fix to master
+
+### What was done
+
+- Fast-forwarded `master` to `61afbb3` (playback fixes) and pushed to `UranusNo7/dart_simple_live`; local `master` now tracks `legacy/master`.
+- Created and pushed tag `v1.11.12-fix` at `61afbb3`; tag-triggered run `37222155124` completed with conclusion `success`.
+- Formal GitHub Release `v1.11.12-fix` is published (not draft, not prerelease) with both cloud-built assets.
+
+### Testing
+
+- `build-windows`: success; `simple_live_app-v1.11.12-fix-windows.zip` (37,261,760 bytes, `state=uploaded`).
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,412 bytes, `state=uploaded`).
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37222155124
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.12-fix
+
+### Notes
+
+- `progress.md`: recorded the merge, tag, workflow verification, and Release evidence.
+- Rollback: delete the `v1.11.12-fix` Release and tag with `gh release delete v1.11.12-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.12-fix`; source rollback point is the parent of the merge (`e232e94`).
+
