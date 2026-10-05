@@ -567,8 +567,24 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `git diff --check`: clean after restoring generated plugin files.
 - Real long-running foreground playback remains untested on a physical device.
 
+- Rollback: `git checkout -- simple_live_app/lib/modules/live_room/live_room_controller.dart simple_live_app/test/live_room_stability_test.dart`.
+
+## 2026-10-06 - Task: Publish v1.11.14-fix
+
+### What was done
+
+- Created and pushed tag `v1.11.14-fix` at foreground stream recovery commit `f4a2f4f`.
+- GitHub Actions run `37355207983` completed successfully and published the formal Release.
+
+### Testing
+
+- `build-windows`: success; `simple_live_app-v1.11.14-fix-windows.zip` (37,262,490 bytes, uploaded).
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,412 bytes, uploaded).
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37355207983
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.14-fix
+
 ### Notes
 
-- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: foreground disconnect confirmation and recovery.
-- `simple_live_app/test/live_room_stability_test.dart`: explicit offline-status and one-shot recovery tests.
-- Rollback: `git checkout -- simple_live_app/lib/modules/live_room/live_room_controller.dart simple_live_app/test/live_room_stability_test.dart`.
+- Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
+- The post-tag progress log is maintained on `master`; the tag remains pinned to `f4a2f4f`.
+- Rollback: delete the `v1.11.14-fix` Release and tag with `gh release delete v1.11.14-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.14-fix`.
