@@ -531,3 +531,23 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `flutter test` rewrites three unrelated generated plugin files; they were restored before commit.
 - Rollback: `git checkout -- simple_live_app/lib/modules/live_room/live_room_controller.dart simple_live_app/test/live_room_stability_test.dart`.
 
+## 2026-10-06 - Task: Publish background-resume fix as v1.11.13-fix
+
+### What was done
+
+- Pushed commit `694ab77` to `master`.
+- Created and pushed tag `v1.11.13-fix`.
+- GitHub Actions run `37348027410` completed successfully and published the formal Release.
+
+### Testing
+
+- `build-windows`: success; `simple_live_app-v1.11.13-fix-windows.zip` (37,261,952 bytes, uploaded).
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,412 bytes, uploaded).
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37348027410
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.13-fix
+
+### Notes
+
+- Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
+- This post-tag progress-only commit does not change the tagged source contents.
+- Rollback: delete the `v1.11.13-fix` Release and tag with `gh release delete v1.11.13-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.13-fix`.
