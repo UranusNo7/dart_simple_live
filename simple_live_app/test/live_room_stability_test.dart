@@ -22,6 +22,21 @@ void main() {
     expect(gate.isCurrent(request), isFalse);
   });
 
+  test('background media end does not mark a live room offline', () {
+    expect(
+      shouldMarkLiveOffline(isBackground: true, error: null),
+      isFalse,
+    );
+    expect(
+      shouldMarkLiveOffline(isBackground: false, error: null),
+      isTrue,
+    );
+    expect(
+      shouldMarkLiveOffline(isBackground: true, error: 'connection lost'),
+      isFalse,
+    );
+  });
+
   test('Android phones keep the single-column room layout in landscape', () {
     expect(
       shouldUseWideLiveRoomLayout(isAndroid: true, width: 1200),

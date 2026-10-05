@@ -508,3 +508,26 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `progress.md`: recorded the merge, tag, workflow verification, and Release evidence.
 - Rollback: delete the `v1.11.12-fix` Release and tag with `gh release delete v1.11.12-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.12-fix`; source rollback point is the parent of the merge (`e232e94`).
 
+## 2026-10-06 - Task: Fix playback stalling and false offline state after backgrounding
+
+### What was done
+
+- Stopped treating a backgrounded stream disconnect as the anchor going offline: offline is now only marked when the app is foregrounded and no playback error occurred.
+- Removed the spurious "播放失败" toast raised by background disconnects.
+- Returning to the foreground now reloads the play URL through the existing path when the room is still live, so no manual refresh is needed.
+
+### Testing
+
+- `dart analyze lib/modules/live_room/live_room_controller.dart`: no issues.
+- `flutter test test/live_room_stability_test.dart`: 4/4 passed, including a new regression case for the offline decision.
+- `git diff --check`: clean.
+- The real background/foreground round trip was not exercised: this machine has no Android or Windows player available.
+
+### Notes
+
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: added `shouldMarkLiveOffline`, applied it in the last-line recovery branch, and reload the play URL on resume.
+- `simple_live_app/test/live_room_stability_test.dart`: added offline-decision regression coverage.
+- The foreground resume condition deliberately reloads on every resume, which also covers silent stalls that never raise a media error; the cost is one extra reconnect after a brief app switch.
+- `flutter test` rewrites three unrelated generated plugin files; they were restored before commit.
+- Rollback: `git checkout -- simple_live_app/lib/modules/live_room/live_room_controller.dart simple_live_app/test/live_room_stability_test.dart`.
+

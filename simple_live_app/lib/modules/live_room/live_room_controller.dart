@@ -52,6 +52,13 @@ class LiveRoomRequestGate {
   }
 }
 
+bool shouldMarkLiveOffline({
+  required bool isBackground,
+  required String? error,
+}) {
+  return !isBackground && error == null;
+}
+
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   static const int kMaxMessagesSoftLimit = 200;
   static const int kMaxMessagesHardLimit = 1000;
@@ -767,9 +774,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
       if (playUrls.length - 1 == currentLineIndex) {
         _activePlaybackRequest = null;
-        if (error == null) {
+        if (shouldMarkLiveOffline(isBackground: isBackground, error: error)) {
           liveStatus.value = false;
-        } else {
+        } else if (error != null) {
           errorMsg.value = "播放失败";
           SmartDialog.showToast("播放失败:$error");
         }
@@ -1403,6 +1410,9 @@ ${error?.stackTrace}''');
       Log.d("返回前台");
       danmakuController?.resume();
       isBackground = false;
+      if (liveStatus.value && currentQuality >= 0 && qualites.isNotEmpty) {
+        getPlayUrl();
+      }
     }
   }
 
