@@ -551,3 +551,24 @@ The command names in the preceding entry are intended to be read as plain text: 
 - Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
 - This post-tag progress-only commit does not change the tagged source contents.
 - Rollback: delete the `v1.11.13-fix` Release and tag with `gh release delete v1.11.13-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.13-fix`.
+
+## 2026-10-06 - Task: Prevent foreground stream disconnects from being marked offline
+
+### What was done
+
+- The final-line `mediaEnd` path now checks `LiveSite.getLiveStatus` before changing `liveStatus`; an active room reloads its play URL instead of being marked offline.
+- Unknown status or status-request failure no longer falsely marks the room offline, and request-generation checks remain around the asynchronous status query.
+- Added a one-attempt-per-playback-cycle guard to prevent repeated status probes or recovery loops.
+
+### Testing
+
+- `dart analyze lib/modules/live_room/live_room_controller.dart`: no issues.
+- `flutter test test/live_room_stability_test.dart`: 5/5 passed.
+- `git diff --check`: clean after restoring generated plugin files.
+- Real long-running foreground playback remains untested on a physical device.
+
+### Notes
+
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: foreground disconnect confirmation and recovery.
+- `simple_live_app/test/live_room_stability_test.dart`: explicit offline-status and one-shot recovery tests.
+- Rollback: `git checkout -- simple_live_app/lib/modules/live_room/live_room_controller.dart simple_live_app/test/live_room_stability_test.dart`.

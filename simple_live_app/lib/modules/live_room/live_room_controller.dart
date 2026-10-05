@@ -55,8 +55,17 @@ class LiveRoomRequestGate {
 bool shouldMarkLiveOffline({
   required bool isBackground,
   required String? error,
+  required bool? confirmedLiveStatus,
 }) {
-  return !isBackground && error == null;
+  return !isBackground && error == null && confirmedLiveStatus == false;
+}
+
+bool shouldCheckLiveStatus({
+  required bool isBackground,
+  required String? error,
+  required bool recoveryAttempted,
+}) {
+  return !isBackground && error == null && !recoveryAttempted;
 }
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
@@ -149,6 +158,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   Future<void> _playerOperation = Future<void>.value();
   int? _activePlaybackRequest;
   bool _mediaRecoveryInProgress = false;
+  bool _liveStatusRecoveryAttempted = false;
   bool _closed = false;
 
   @override
@@ -461,6 +471,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     qualites.clear();
     currentQuality = -1;
     playUrlRefreshCount = 0;
+    _liveStatusRecoveryAttempted = false;
 
     try {
       final playQualites =
@@ -520,6 +531,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   void getPlayUrl() {
     playUrlRefreshCount = 0;
+    _liveStatusRecoveryAttempted = false;
     unawaited(_reloadPlayUrl());
   }
 
@@ -773,8 +785,42 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
 
       if (playUrls.length - 1 == currentLineIndex) {
+        bool? confirmedLiveStatus;
+        if (shouldCheckLiveStatus(
+          isBackground: isBackground,
+          error: error,
+          recoveryAttempted: _liveStatusRecoveryAttempted,
+        )) {
+          _liveStatusRecoveryAttempted = true;
+          final roomDetail = detail.value;
+          final requestSite = site;
+          if (roomDetail != null &&
+              _isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
+              _activePlaybackRequest == playbackRequest) {
+            try {
+              confirmedLiveStatus = await requestSite.liveSite
+                  .getLiveStatus(roomId: roomDetail.roomId);
+            } catch (e) {
+              Log.logPrint(e);
+            }
+            if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
+                _activePlaybackRequest != playbackRequest) {
+              return;
+            }
+            if (confirmedLiveStatus == true) {
+              Log.d("直播仍在播，重新获取播放地址");
+              await _reloadPlayUrl();
+              return;
+            }
+          }
+        }
+
         _activePlaybackRequest = null;
-        if (shouldMarkLiveOffline(isBackground: isBackground, error: error)) {
+        if (shouldMarkLiveOffline(
+          isBackground: isBackground,
+          error: error,
+          confirmedLiveStatus: confirmedLiveStatus,
+        )) {
           liveStatus.value = false;
         } else if (error != null) {
           errorMsg.value = "播放失败";
