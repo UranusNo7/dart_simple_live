@@ -170,6 +170,17 @@ class MinePage extends StatelessWidget {
                     Get.toNamed(RoutePath.kSettingsAutoExit);
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Remix.settings_3_line),
+                  title: const Text("其他设置"),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    Get.toNamed(RoutePath.kSettingsOther);
+                  },
+                ),
                 if (kDebugMode)
                   ListTile(
                     leading: const Icon(Remix.apps_line),

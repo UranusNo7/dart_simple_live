@@ -588,3 +588,24 @@ The command names in the preceding entry are intended to be read as plain text: 
 - Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
 - The post-tag progress log is maintained on `master`; the tag remains pinned to `f4a2f4f`.
 - Rollback: delete the `v1.11.14-fix` Release and tag with `gh release delete v1.11.14-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.14-fix`.
+
+## 2026-10-09 - Task: Add the 其他设置 entry to the mine page
+
+### What was done
+
+- Added a 其他设置 ListTile to the mine page settings card, placed after 定时关闭 and before the debug-only 测试 item, following the style of the adjacent entries.
+- The entry navigates with `Get.toNamed(RoutePath.kSettingsOther)` and is not guarded by `kDebugMode`, so it is reachable in release builds where the already-registered `OtherSettingsPage` route becomes usable from the UI.
+
+### Testing
+
+- `dart analyze lib/modules/mine/mine_page.dart test/navigation_settings_test.dart`: no issues.
+- `flutter test test/navigation_settings_test.dart --no-pub`: 2/2 passed, including a new widget test that renders the mine page, finds the 其他设置 entry with its icon, taps it, and asserts the other-settings route opens.
+- Verification gap: the test stubs the destination route, so it proves entry presence and navigation target, not the real `OtherSettingsPage` UI; the full app flow was not exercised on a device.
+- No unrelated generated files were modified; `git status --short` lists only the two files below.
+
+### Notes
+
+- `simple_live_app/lib/modules/mine/mine_page.dart`: added the 其他设置 entry.
+- `simple_live_app/test/navigation_settings_test.dart`: added the entry navigation widget test; the mine page is wrapped in a `Scaffold` inside the test because it is rendered under one in the app.
+- Nothing was committed or pushed; the entry is unverified on a real device.
+- Rollback: `git checkout -- simple_live_app/lib/modules/mine/mine_page.dart simple_live_app/test/navigation_settings_test.dart`.
