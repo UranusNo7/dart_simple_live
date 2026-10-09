@@ -609,3 +609,26 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `simple_live_app/test/navigation_settings_test.dart`: added the entry navigation widget test; the mine page is wrapped in a `Scaffold` inside the test because it is rendered under one in the app.
 - Nothing was committed or pushed; the entry is unverified on a real device.
 - Rollback: `git checkout -- simple_live_app/lib/modules/mine/mine_page.dart simple_live_app/test/navigation_settings_test.dart`.
+
+## 2026-10-09 - Task: Publish v1.11.15-fix with the 其他设置 entry
+
+### What was done
+
+- Committed the 其他设置 entry and released it as tag `v1.11.15-fix`, whose source is `55ebf29` (`fix: expose other settings and logging entry`).
+- The tag-triggered GitHub Actions run built both targets and published the formal Release, so the previously release-inaccessible `OtherSettingsPage` is now reachable from the mine page.
+
+### Testing
+
+- Actions run `37936130802` (`v1.11.15-fix`, `55ebf29`): `conclusion=success`.
+- `build-windows`: success; `simple_live_app-v1.11.15-fix-windows.zip` (37,262,842 bytes, uploaded).
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,672 bytes, uploaded).
+- Release `v1.11.15-fix` verified via the GitHub API as `draft=false`, `prerelease=false`, both assets `state=uploaded`.
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37936130802
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.15-fix
+- Verification gap: asset sizes and Release state were confirmed from the GitHub API, but the entry itself was not tapped on a real Android or Windows device.
+
+### Notes
+
+- Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
+- Source contents are pinned to `55ebf29`; this log-only update is appended afterwards and does not change the tagged source.
+- Rollback: `git revert 55ebf29` retracts the source, which requires publishing another version (the Release is not deleted automatically); to remove the Release and tag, use `gh release delete v1.11.15-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.15-fix`.
