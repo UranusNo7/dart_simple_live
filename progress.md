@@ -660,3 +660,26 @@ The command names in the preceding entry are intended to be read as plain text: 
 - `docs/navigation-and-settings.md`: added a "Live stream recovery" section describing the bounded policy and its limits.
 - Nothing was committed or pushed; no local build was run.
 - Rollback: `git revert` the commit that contains this change (source-only; the observed roughly 300-second connection reset and the `expire=300` address lifetime are unchanged by it).
+
+## 2026-10-10 - Task: Publish v1.11.16-fix with the Douyu recovery fix
+
+### What was done
+
+- Released the Douyu stream-drop recovery change as tag `v1.11.16-fix`, whose source is `5b9a570` (`fix: refresh Douyu streams directly and recover on resume only when needed`).
+- The tag-triggered GitHub Actions run built both targets and published the formal Release, so the single-line `open`, direct address refresh on failure, per-attempt progress baseline, and conditional foreground recovery are available in a published build.
+
+### Testing
+
+- Actions run `37969230999` (`v1.11.16-fix`, `5b9a570`): `conclusion=success`.
+- `build-android`: success; `app-arm64-v8a-release.apk` (40,316,672 bytes, uploaded).
+- `build-windows`: success; `simple_live_app-v1.11.16-fix-windows.zip` (37,268,757 bytes, uploaded).
+- Release `v1.11.16-fix` verified via the GitHub API as `draft=false`, `prerelease=false`, both assets `state=uploaded`.
+- Run URL: https://github.com/UranusNo7/dart_simple_live/actions/runs/37969230999
+- Release URL: https://github.com/UranusNo7/dart_simple_live/releases/tag/v1.11.16-fix
+- Verification gaps remaining: the cloud build confirms compilation only. The recovery behaviour was not exercised on a device, so playback is still unverified in practice; the controller is not instantiated by any test, so the real `player.open` call, the real `player.stream.position` feed, the resume probe's background and generation guards, and a real foreground round trip remain uncovered. This release does not remove the observed roughly 300-second connection reset, which the client cannot prevent.
+
+### Notes
+
+- Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
+- Source contents are pinned to `5b9a570`; this log-only update is appended afterwards and does not change the tagged source.
+- Rollback: `git revert 5b9a570` retracts the source, which requires publishing another version (an already published Release is not deleted automatically); to remove the Release and tag, use `gh release delete v1.11.16-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.16-fix`.
