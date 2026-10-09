@@ -632,3 +632,31 @@ The command names in the preceding entry are intended to be read as plain text: 
 - Release is formal (`draft=false`, `prerelease=false`) with both assets uploaded.
 - Source contents are pinned to `55ebf29`; this log-only update is appended afterwards and does not change the tagged source.
 - Rollback: `git revert 55ebf29` retracts the source, which requires publishing another version (the Release is not deleted automatically); to remove the Release and tag, use `gh release delete v1.11.15-fix --repo UranusNo7/dart_simple_live --yes` followed by `git push legacy :refs/tags/v1.11.15-fix`.
+
+## 2026-10-10 - Task: Fix Douyu stream-drop recovery and unconditional foreground refresh
+
+### What was done
+
+- Douyu now opens only the currently selected line instead of handing the whole returned address list to the player, so the player can no longer walk through other CDN hosts by itself; switching lines re-opens the selected address instead of jumping inside the loaded list.
+- On EOF or a playback error, Douyu fetches a fresh address immediately instead of retrying the old one. Other sites keep a bounded same-address retry first.
+- The refresh budget is returned only after the playback position of the current playback attempt has advanced by a few seconds. Opening a stream or a `playing` event is not treated as a successful recovery, so an unusable address cannot cause rapid reconnects. Each playback attempt re-arms the position baseline, and position events are ignored while no playback is active or a recovery is running, so a stale position event cannot restore the budget.
+- Returning to the foreground no longer refreshes unconditionally. It recovers only when playback was lost in the background or when the position is confirmed not to advance; overlapping probes are dropped, and a probe whose room was closed, replaced, or returned to the background is discarded. A recorded background failure takes priority over the playback-paused check.
+- Recovery decisions and counters moved into a small `LivePlaybackRecovery` helper that the controller uses directly, which keeps the existing request-generation guards and makes the behaviour testable with fake state.
+
+### Testing
+
+- `dart analyze lib/modules/live_room/live_room_controller.dart test/live_room_stability_test.dart`: no issues.
+- `flutter test test/live_room_stability_test.dart --no-pub`: 15/15 passed.
+- `flutter test --no-pub` (whole app suite): 22/22 passed.
+- New coverage drives the real recovery object: Douyu skipping the stale-address retry, other sites retrying before refreshing, the exhausted-budget fallback order, the background-loss flag, the per-attempt progress gate (a stale position or a new open that does not restart at zero cannot restore the budget), flag clearing only after progress, resume-probe de-duplication, and the stall/paused resume decision.
+- Verification gaps: the controller was not instantiated in tests, so nothing covers the actual `player.open` call, the real `player.stream.position` feed, the resume probe's background/generation guards, or a real foreground round trip; the log evidence comes from one Windows session and the fix was not verified on a device or by a local build.
+
+### Notes
+
+- Evidence source: a Windows session log on Douyu room 6979222 where addresses carry `expire=300`, the connection was observed to reset about every 300 seconds, and recovery repeatedly re-opened stale `scdn`/`hw` addresses for about 18-25 seconds before a fresh address played. Which hop resets the connection is not established by this log, the client cannot prevent it, and no scheduled periodic refresh was added.
+- Known limit: a player event belonging to a superseded playback attempt can still arrive after a new attempt started. Recovery relies on the request-generation guards and on opening a single line instead of completely shielding stale events, so a late event may still start one extra recovery attempt. No time-based cooldown was added because it would also discard genuine failures.
+- `simple_live_app/lib/modules/live_room/live_room_controller.dart`: added `LiveRecoveryAction` and `LivePlaybackRecovery`, single-line `open` for short-lived-address sites, plan-driven recovery, progress-gated budget, and the resume probe replacing the unconditional `getPlayUrl`.
+- `simple_live_app/test/live_room_stability_test.dart`: added recovery scheduling, budget, and resume-decision coverage.
+- `docs/navigation-and-settings.md`: added a "Live stream recovery" section describing the bounded policy and its limits.
+- Nothing was committed or pushed; no local build was run.
+- Rollback: `git revert` the commit that contains this change (source-only; the observed roughly 300-second connection reset and the `expire=300` address lifetime are unchanged by it).

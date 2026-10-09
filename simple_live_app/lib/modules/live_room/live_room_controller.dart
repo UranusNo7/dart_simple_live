@@ -68,6 +68,163 @@ bool shouldCheckLiveStatus({
   return !isBackground && error == null && !recoveryAttempted;
 }
 
+/// 播放失败后可以采取的恢复动作。
+enum LiveRecoveryAction {
+  /// 重新打开当前地址，只适用于地址不会过期的普通站点
+  retryCurrentUrl,
+
+  /// 重新获取播放地址
+  refreshPlayUrl,
+
+  /// 切换到下一条线路
+  switchLine,
+
+  /// 线路已用尽，先确认真实直播状态
+  confirmLiveStatus,
+
+  /// 本轮已无可用动作
+  giveUp,
+}
+
+/// 直播播放恢复决策：保存重试预算、判定本轮播放进展、决定失败后的下一步动作。
+///
+/// 斗鱼地址带 `expire=300`，本次日志中连接约每 300 秒被重置一次，与 `expire` 一致，
+/// 但现有证据无法确定是哪一跳断开。地址不可用后重试旧地址没有意义，因此
+/// [refreshUrlsOnFailure] 的站点失败后直接刷新地址。刷新预算只在本轮播放位置
+/// 前进达到 [minProgressToRestore] 后归还，不会因为 open/playing 事件归还，
+/// 避免地址一直不可用时形成快速重连循环。
+class LivePlaybackRecovery {
+  LivePlaybackRecovery({required this.refreshUrlsOnFailure});
+
+  final bool refreshUrlsOnFailure;
+
+  /// 普通站点允许的同一地址重试次数
+  static const int maxSameUrlRetries = 2;
+
+  /// 每轮允许重新获取播放地址的次数
+  static const int maxUrlRefreshes = 1;
+
+  /// 本轮播放位置需要前进的时长才归还预算。
+  /// 这是同一轮内的位置增量，不代表连续的播放时长。
+  static const Duration minProgressToRestore = Duration(seconds: 5);
+
+  int sameUrlRetries = 0;
+  int urlRefreshes = 0;
+
+  /// 线路用尽后是否已经确认过真实直播状态
+  bool liveStatusChecked = false;
+
+  /// 后台期间播放已丢失（失败或 EOF），回到前台需要重新拉流
+  bool lostWhileBackgrounded = false;
+
+  /// 回前台停滞探测是否进行中，避免连续 resumed 反复重连
+  bool resumeProbeRunning = false;
+
+  /// 本轮播放的进展基准，null 表示还没有收到本轮的位置事件
+  Duration? _sessionStart;
+  Duration _lastPosition = Duration.zero;
+
+  /// 每次开始新的播放请求时调用，上一轮的位置不能用于归还本轮预算
+  void armNewPlaybackSession() {
+    _sessionStart = null;
+  }
+
+  /// 已取回新的播放地址，重新开始同一地址的重试计数
+  void startNewAddressCycle() {
+    sameUrlRetries = 0;
+  }
+
+  /// 切换清晰度等全新播放周期，同时归还刷新预算与状态确认机会
+  void startNewQualityCycle() {
+    startNewAddressCycle();
+    urlRefreshes = 0;
+    liveStatusChecked = false;
+  }
+
+  /// 记录一次播放失败，后台丢失要在回到前台时恢复
+  void markFailure({required bool isBackground}) {
+    if (isBackground) {
+      lostWhileBackgrounded = true;
+    }
+  }
+
+  /// 播放位置在本轮内前进达到阈值才代表真的在播放，返回是否归还了已用完的预算。
+  ///
+  /// [armNewPlaybackSession] 之后的第一个位置事件只作为本轮基准；位置回退
+  /// （新的一轮从 0 开始）也重新取基准，因此旧请求遗留的位置事件不会瞬间归还预算。
+  bool onPlaybackProgress(Duration position) {
+    final sessionStart = _sessionStart;
+    if (sessionStart == null || position < _lastPosition) {
+      _sessionStart = position;
+      _lastPosition = position;
+      return false;
+    }
+    if (position <= _lastPosition) {
+      _lastPosition = position;
+      return false;
+    }
+    _lastPosition = position;
+    if (position - sessionStart < minProgressToRestore) {
+      return false;
+    }
+    final restored =
+        urlRefreshes > 0 || liveStatusChecked || lostWhileBackgrounded;
+    urlRefreshes = 0;
+    liveStatusChecked = false;
+    lostWhileBackgrounded = false;
+    return restored;
+  }
+
+  /// 决定这次失败下一步做什么，并消耗对应的预算
+  LiveRecoveryAction planFailure({
+    required bool hasMoreLines,
+    required bool isBackground,
+    required String? error,
+  }) {
+    if (!refreshUrlsOnFailure && sameUrlRetries < maxSameUrlRetries) {
+      sameUrlRetries += 1;
+      return LiveRecoveryAction.retryCurrentUrl;
+    }
+    if (urlRefreshes < maxUrlRefreshes) {
+      urlRefreshes += 1;
+      sameUrlRetries = 0;
+      return LiveRecoveryAction.refreshPlayUrl;
+    }
+    if (hasMoreLines) {
+      return LiveRecoveryAction.switchLine;
+    }
+    if (shouldCheckLiveStatus(
+      isBackground: isBackground,
+      error: error,
+      recoveryAttempted: liveStatusChecked,
+    )) {
+      liveStatusChecked = true;
+      return LiveRecoveryAction.confirmLiveStatus;
+    }
+    return LiveRecoveryAction.giveUp;
+  }
+
+  bool beginResumeProbe() {
+    if (resumeProbeRunning) {
+      return false;
+    }
+    resumeProbeRunning = true;
+    return true;
+  }
+
+  void endResumeProbe() {
+    resumeProbeRunning = false;
+  }
+
+  /// 探测窗口内播放位置没有前进即为静默停滞；[playing] 为假表示播放器处于暂停状态，不打扰
+  bool shouldRecoverOnStall({
+    required bool positionAdvanced,
+    required bool playing,
+  }) {
+    return playing && !positionAdvanced;
+  }
+}
+
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   static const int kMaxMessagesSoftLimit = 200;
   static const int kMaxMessagesHardLimit = 1000;
@@ -81,6 +238,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }) {
     rxSite = pSite.obs;
     rxRoomId = pRoomId.obs;
+    recovery = LivePlaybackRecovery(
+      refreshUrlsOnFailure: site.id == Constant.kDouyu,
+    );
     liveDanmaku = site.liveSite.getDanmaku();
     // 抖音应该默认是竖屏的
     if (site.id == "douyin") {
@@ -158,7 +318,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   Future<void> _playerOperation = Future<void>.value();
   int? _activePlaybackRequest;
   bool _mediaRecoveryInProgress = false;
-  bool _liveStatusRecoveryAttempted = false;
+  late final LivePlaybackRecovery recovery;
   bool _closed = false;
 
   @override
@@ -173,8 +333,22 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     unawaited(loadData());
 
     scrollController.addListener(scrollListener);
+    _positionSubscription = player.stream.position.listen(_onPlaybackPosition);
 
     super.onInit();
+  }
+
+  StreamSubscription<Duration>? _positionSubscription;
+
+  /// 只有当前播放请求仍在进行、且没有正在恢复时才统计进展，
+  /// 旧请求遗留或恢复过程中的位置事件不参与预算归还
+  void _onPlaybackPosition(Duration position) {
+    if (_activePlaybackRequest == null || _mediaRecoveryInProgress) {
+      return;
+    }
+    if (recovery.onPlaybackProgress(position)) {
+      Log.d("本轮播放位置已前进，恢复重试预算");
+    }
   }
 
   void scrollListener() {
@@ -470,8 +644,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
     qualites.clear();
     currentQuality = -1;
-    playUrlRefreshCount = 0;
-    _liveStatusRecoveryAttempted = false;
+    recovery.startNewQualityCycle();
 
     try {
       final playQualites =
@@ -530,8 +703,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   void getPlayUrl() {
-    playUrlRefreshCount = 0;
-    _liveStatusRecoveryAttempted = false;
+    recovery.startNewQualityCycle();
     unawaited(_reloadPlayUrl());
   }
 
@@ -583,7 +755,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     currentLineIndex = 0;
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     //重置错误次数
-    mediaErrorRetryCount = 0;
+    recovery.startNewAddressCycle();
     await _initPlaylist(
       roomRequest: roomRequest,
       playbackRequest: playbackRequest,
@@ -596,7 +768,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
     currentLineIndex = index;
     //重置错误次数
-    mediaErrorRetryCount = 0;
+    recovery.startNewAddressCycle();
     final playbackRequest = _beginPlaybackRequest();
     unawaited(
       _setPlayer(
@@ -619,6 +791,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
     final mediaList =
         playUrls.map((url) => Media(url, httpHeaders: playHeaders)).toList();
+    // 斗鱼地址带 expire 且备用 CDN 常不可播，只 open 当前线路，
+    // 避免播放器在整张列表里自动打开其它旧地址
+    final playable = _openOnlyCurrentLine
+        ? Media(playUrls[currentLineIndex], httpHeaders: playHeaders)
+        : Playlist(mediaList);
 
     var opened = false;
     try {
@@ -631,7 +808,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
           return;
         }
-        await player.open(Playlist(mediaList));
+        await player.open(playable);
         opened = true;
       });
       if (opened && _isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
@@ -661,6 +838,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     );
   }
 
+  /// 斗鱼等地址带有效期的站点只 open 当前线路，其余站点保留多线路播放列表
+  bool get _openOnlyCurrentLine => site.id == Constant.kDouyu;
+
   Future<void> _setPlayer({
     required int roomRequest,
     required int playbackRequest,
@@ -678,7 +858,15 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
           return;
         }
-        await player.jump(lineIndex);
+        if (_openOnlyCurrentLine) {
+          // 斗鱼只 open 当前线路，切线必须重新 open 目标地址；
+          // player.jump 只是在旧列表里跳位置，不会重新取流
+          await player.open(
+            Media(playUrls[lineIndex], httpHeaders: playHeaders),
+          );
+        } else {
+          await player.jump(lineIndex);
+        }
         jumped = true;
       });
       if (jumped && _isCurrentPlaybackRequest(roomRequest, playbackRequest)) {
@@ -699,11 +887,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     _handleMediaFailure();
   }
 
-  int mediaErrorRetryCount = 0;
-
-  /// 播放地址带签名，会随时间失效，重新获取播放地址的次数上限
-  int playUrlRefreshCount = 0;
-
   /// 播放已打开但一直收不到画面的兜底计时器
   Timer? _noVideoTimer;
 
@@ -714,6 +897,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   void _handleMediaFailure({String? error}) {
+    recovery.markFailure(isBackground: isBackground);
     if (_mediaRecoveryInProgress || _activePlaybackRequest == null) {
       return;
     }
@@ -738,13 +922,19 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     String? error,
   }) async {
     try {
-      if (mediaErrorRetryCount < 2) {
+      var action = recovery.planFailure(
+        hasMoreLines: currentLineIndex < playUrls.length - 1,
+        isBackground: isBackground,
+        error: error,
+      );
+
+      if (action == LiveRecoveryAction.retryCurrentUrl) {
         Log.d(
           error == null
-              ? "播放结束，尝试第${mediaErrorRetryCount + 1}次刷新"
-              : "播放失败，尝试第${mediaErrorRetryCount + 1}次刷新",
+              ? "播放结束，尝试第${recovery.sameUrlRetries}次刷新"
+              : "播放失败，尝试第${recovery.sameUrlRetries}次刷新",
         );
-        if (mediaErrorRetryCount == 1) {
+        if (recovery.sameUrlRetries == 2) {
           //延迟一秒再刷新
           await Future.delayed(const Duration(seconds: 1));
         }
@@ -752,7 +942,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
             _activePlaybackRequest != playbackRequest) {
           return;
         }
-        mediaErrorRetryCount += 1;
         final nextPlaybackRequest = _beginPlaybackRequest();
         await _setPlayer(
           roomRequest: roomRequest,
@@ -762,18 +951,21 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         return;
       }
 
-      // 同一条地址重试后仍然失败，多半是播放地址过期，重新获取后再试
-      if (playUrlRefreshCount < 1 &&
-          _isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
-          _activePlaybackRequest == playbackRequest &&
-          playUrls.isNotEmpty &&
-          currentQuality >= 0 &&
-          currentQuality < qualites.length) {
-        Log.d("播放失败，重新获取播放地址");
-        playUrlRefreshCount += 1;
-        mediaErrorRetryCount = 0;
-        await _reloadPlayUrl();
-        return;
+      // 播放地址过期后重试旧地址没有意义，直接重新获取；斗鱼失败后即走这里
+      if (action == LiveRecoveryAction.refreshPlayUrl) {
+        if (_isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
+            _activePlaybackRequest == playbackRequest &&
+            playUrls.isNotEmpty &&
+            currentQuality >= 0 &&
+            currentQuality < qualites.length) {
+          Log.d("播放失败，重新获取播放地址");
+          await _reloadPlayUrl();
+          return;
+        }
+        // 前置条件不满足时退回到线路切换/状态确认
+        action = currentLineIndex < playUrls.length - 1
+            ? LiveRecoveryAction.switchLine
+            : LiveRecoveryAction.giveUp;
       }
 
       if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
@@ -784,58 +976,54 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         return;
       }
 
-      if (playUrls.length - 1 == currentLineIndex) {
-        bool? confirmedLiveStatus;
-        if (shouldCheckLiveStatus(
-          isBackground: isBackground,
-          error: error,
-          recoveryAttempted: _liveStatusRecoveryAttempted,
-        )) {
-          _liveStatusRecoveryAttempted = true;
-          final roomDetail = detail.value;
-          final requestSite = site;
-          if (roomDetail != null &&
-              _isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
-              _activePlaybackRequest == playbackRequest) {
-            try {
-              confirmedLiveStatus = await requestSite.liveSite
-                  .getLiveStatus(roomId: roomDetail.roomId);
-            } catch (e) {
-              Log.logPrint(e);
-            }
-            if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
-                _activePlaybackRequest != playbackRequest) {
-              return;
-            }
-            if (confirmedLiveStatus == true) {
-              Log.d("直播仍在播，重新获取播放地址");
-              await _reloadPlayUrl();
-              return;
-            }
-          }
-        }
-
-        _activePlaybackRequest = null;
-        if (shouldMarkLiveOffline(
-          isBackground: isBackground,
-          error: error,
-          confirmedLiveStatus: confirmedLiveStatus,
-        )) {
-          liveStatus.value = false;
-        } else if (error != null) {
-          errorMsg.value = "播放失败";
-          SmartDialog.showToast("播放失败:$error");
-        }
-      } else {
+      if (action == LiveRecoveryAction.switchLine) {
         final nextLineIndex = currentLineIndex + 1;
         currentLineIndex = nextLineIndex;
-        mediaErrorRetryCount = 0;
+        recovery.startNewAddressCycle();
         final nextPlaybackRequest = _beginPlaybackRequest();
         await _setPlayer(
           roomRequest: roomRequest,
           playbackRequest: nextPlaybackRequest,
           lineIndex: nextLineIndex,
         );
+        return;
+      }
+
+      bool? confirmedLiveStatus;
+      if (action == LiveRecoveryAction.confirmLiveStatus) {
+        final roomDetail = detail.value;
+        final requestSite = site;
+        if (roomDetail != null &&
+            _isCurrentPlaybackRequest(roomRequest, playbackRequest) &&
+            _activePlaybackRequest == playbackRequest) {
+          try {
+            confirmedLiveStatus = await requestSite.liveSite
+                .getLiveStatus(roomId: roomDetail.roomId);
+          } catch (e) {
+            Log.logPrint(e);
+          }
+          if (!_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
+              _activePlaybackRequest != playbackRequest) {
+            return;
+          }
+          if (confirmedLiveStatus == true) {
+            Log.d("直播仍在播，重新获取播放地址");
+            await _reloadPlayUrl();
+            return;
+          }
+        }
+      }
+
+      _activePlaybackRequest = null;
+      if (shouldMarkLiveOffline(
+        isBackground: isBackground,
+        error: error,
+        confirmedLiveStatus: confirmedLiveStatus,
+      )) {
+        liveStatus.value = false;
+      } else if (error != null) {
+        errorMsg.value = "播放失败";
+        SmartDialog.showToast("播放失败:$error");
       }
     } finally {
       _mediaRecoveryInProgress = false;
@@ -844,6 +1032,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   int _beginPlaybackRequest() {
     _noVideoTimer?.cancel();
+    // 每次开始新的播放请求都重置进展基准，上一轮的位置事件不能归还本轮预算
+    recovery.armNewPlaybackSession();
     final request = _playbackRequestGate.begin();
     _activePlaybackRequest = null;
     return request;
@@ -1456,9 +1646,48 @@ ${error?.stackTrace}''');
       Log.d("返回前台");
       danmakuController?.resume();
       isBackground = false;
-      if (liveStatus.value && currentQuality >= 0 && qualites.isNotEmpty) {
-        getPlayUrl();
+      unawaited(_recoverAfterResume());
+    }
+  }
+
+  /// 回前台只在后台确实丢失播放、或位置确认不再前进时才恢复。
+  /// 故障标记优先；探测进行中时忽略后续 resumed，避免反复重连。
+  Future<void> _recoverAfterResume() async {
+    final roomRequest = _roomRequestGate.current;
+    final playbackRequest = _playbackRequestGate.current;
+    if (_closed || !liveStatus.value || !recovery.beginResumeProbe()) {
+      return;
+    }
+    try {
+      // 后台确实失败/EOF：优先恢复，不因播放器暂停状态跳过
+      if (recovery.lostWhileBackgrounded) {
+        if (_mediaRecoveryInProgress) {
+          return;
+        }
+        recovery.lostWhileBackgrounded = false;
+        Log.d("后台播放已中断，返回前台重新获取播放地址");
+        await _reloadPlayUrl();
+        return;
       }
+      // 静默停滞探测：短时间窗口内位置没有前进才恢复，暂停的播放器不打扰
+      final positionBefore = player.state.position;
+      await Future.delayed(const Duration(seconds: 3));
+      if (_closed ||
+          isBackground ||
+          !_isCurrentPlaybackRequest(roomRequest, playbackRequest) ||
+          _mediaRecoveryInProgress) {
+        return;
+      }
+      if (!recovery.shouldRecoverOnStall(
+        positionAdvanced: player.state.position > positionBefore,
+        playing: player.state.playing,
+      )) {
+        return;
+      }
+      Log.d("返回前台后画面没有前进，重新获取播放地址");
+      await _reloadPlayUrl();
+    } finally {
+      recovery.endResumeProbe();
     }
   }
 
@@ -1504,6 +1733,7 @@ ${error?.stackTrace}''');
     scrollController.dispose();
     autoExitTimer?.cancel();
     _noVideoTimer?.cancel();
+    _positionSubscription?.cancel();
 
     liveDanmaku.stop();
     danmakuController = null;

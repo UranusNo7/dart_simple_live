@@ -48,6 +48,23 @@ Room refreshes and room switches invalidate their previous asynchronous requests
 Player open, line switching, and stop operations are serialized so a late result
 from the previous room cannot replace the current player state.
 
+## Live stream recovery
+
+Room addresses are signed and short-lived. A Douyu address carries `expire=300`, and in the captured session the connection was reset roughly every 300 seconds, matching that value. The client cannot tell which hop performs the reset, so it does not claim to prevent it and adds no scheduled refresh.
+
+The room controller reacts to playback failure with a bounded policy instead of an open-ended reconnect loop:
+
+- Douyu opens only the selected line rather than the whole returned address list, so the player cannot fall back to another CDN host on its own. Other sites keep the multi-line playlist.
+- Switching lines re-opens the selected address. `player.jump` only moves the position inside the already-loaded list, so it is not used for that purpose.
+- On EOF or a playback error, Douyu fetches a fresh address immediately instead of retrying the old one. Other sites try the same address a bounded number of times first.
+- The refresh budget is returned only after the playback position of the current playback attempt has advanced by a few seconds. Opening a stream, or a `playing` event, is not treated as a successful recovery, so an unusable address cannot cause rapid repeated reconnects. The check is a position delta, not a measurement of continuous playback.
+- Returning to the foreground recovers only when playback was lost in the background or when the position is confirmed not to advance. A normally playing stream and a paused player are left untouched, overlapping probes are dropped, and a probe whose room was closed, replaced, or returned to the background is discarded.
+- The last remaining line is only reported as offline after the site itself reports the room has ended.
+
+Recovery is driven by playback events only. There is no scheduled periodic refresh and no time-based filtering of failures, because that would also discard genuine ones.
+
+Known limit: a player event that belongs to a superseded playback attempt can still arrive after a new attempt has started. Recovery relies on the request-generation guards and on opening a single line rather than on completely shielding stale events, so a late event may still start one extra recovery attempt.
+
 ## Build compatibility
 
 The verified toolchain is Flutter 3.44.6 with Dart 3.12.2. This matches the locked `volume_controller 3.6.0` SDK requirement and the native-asset hook format stored in the generated package state.
