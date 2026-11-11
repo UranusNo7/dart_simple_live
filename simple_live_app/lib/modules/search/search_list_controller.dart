@@ -1,6 +1,9 @@
 import 'package:get/get.dart';
+import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/controller/base_controller.dart';
 import 'package:simple_live_app/app/sites.dart';
+import 'package:simple_live_app/modules/mine/parse/douyin_room_input.dart';
+import 'package:simple_live_app/routes/app_navigation.dart';
 
 class SearchListController extends BasePageController {
   String keyword = "";
@@ -38,5 +41,22 @@ class SearchListController extends BasePageController {
   void clear() {
     pageEmpty.value = false;
     list.clear();
+  }
+
+  /// 抖音链接/房间号直达，成功返回解析出的直播间 ID。
+  Future<String?> submitDouyinRoomInput(String? input) async {
+    if (site.id != Constant.kDouyin || input == null) {
+      return null;
+    }
+    final roomId = await DouyinRoomInput.resolveRoomId(input);
+    if (roomId == null || isClosed) {
+      return null;
+    }
+    navigateToRoom(roomId);
+    return roomId;
+  }
+
+  void navigateToRoom(String roomId) {
+    AppNavigator.toLiveRoomDetail(site: site, roomId: roomId);
   }
 }

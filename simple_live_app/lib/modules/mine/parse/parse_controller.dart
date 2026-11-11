@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:simple_live_app/app/constant.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
+import 'package:simple_live_app/modules/mine/parse/douyin_room_input.dart';
 import 'package:simple_live_app/routes/app_navigation.dart';
 
 class ParseController extends GetxController {
@@ -21,7 +22,7 @@ class ParseController extends GetxController {
     FocusManager.instance.primaryFocus?.unfocus();
 
     var parseResult = await parse(e);
-    if (parseResult.isEmpty && parseResult.first == "") {
+    if (parseResult.isEmpty || parseResult.first == "") {
       SmartDialog.showToast("无法解析此链接");
       return;
     }
@@ -39,7 +40,7 @@ class ParseController extends GetxController {
       return;
     }
     var parseResult = await parse(e);
-    if (parseResult.isEmpty && parseResult.first == "") {
+    if (parseResult.isEmpty || parseResult.first == "") {
       SmartDialog.showToast("无法解析此链接");
       return;
     }
@@ -138,22 +139,13 @@ class ParseController extends GetxController {
 
       return [id, Sites.allSites[Constant.kHuya]!];
     }
-    if (url.contains("live.douyin.com")) {
-      var regExp = RegExp(r"live\.douyin\.com/([\d|\w]+)");
-      id = regExp.firstMatch(url)?.group(1) ?? "";
-
-      return [id, Sites.allSites[Constant.kDouyin]!];
-    }
-    if (url.contains("webcast.amemv.com")) {
-      var regExp = RegExp(r"reflow/(\d+)");
-      id = regExp.firstMatch(url)?.group(1) ?? "";
-      return [id, Sites.allSites[Constant.kDouyin]!];
-    }
-    if (url.contains("v.douyin.com")) {
-      var regExp = RegExp(r"http.?://v.douyin.com/[\d\w]+/");
-      var u = regExp.firstMatch(url)?.group(0) ?? "";
-      var location = await getLocation(u);
-      return await parse(location);
+    final douyinUri = DouyinRoomInput.extractUri(url);
+    if (douyinUri != null && DouyinRoomInput.isOfficialHost(douyinUri.host)) {
+      final roomId = await DouyinRoomInput.resolveRoomId(url);
+      if (roomId == null) {
+        return [];
+      }
+      return [roomId, Sites.allSites[Constant.kDouyin]!];
     }
 
     return [];
@@ -169,8 +161,13 @@ class ParseController extends GetxController {
         ),
       );
     } on DioException catch (e) {
-      if (e.response!.statusCode == 302) {
-        var redirectUrl = e.response!.headers.value("Location");
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 301 ||
+          statusCode == 302 ||
+          statusCode == 303 ||
+          statusCode == 307 ||
+          statusCode == 308) {
+        var redirectUrl = e.response?.headers.value("Location");
         if (redirectUrl != null) {
           return redirectUrl;
         }
