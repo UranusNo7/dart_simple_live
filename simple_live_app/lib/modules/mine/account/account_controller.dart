@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_app/app/utils.dart';
+import 'package:simple_live_app/modules/mine/account/douyin/web_login_controller.dart';
 import 'package:simple_live_app/routes/route_path.dart';
 import 'package:simple_live_app/services/bilibili_account_service.dart';
 import 'package:simple_live_app/services/douyin_account_service.dart';
@@ -92,8 +93,43 @@ class AccountController extends GetxController {
         SmartDialog.showToast("已清除自定义 Cookie，将使用默认 ttwid");
       }
     } else {
-      doDouyinCookieConfig();
+      douyinLogin();
     }
+  }
+
+  void douyinLogin() {
+    Utils.showBottomSheet(
+      title: "登录抖音",
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (DouyinWebLoginController.isSupportedPlatform)
+            ListTile(
+              leading: const Icon(Icons.language),
+              title: const Text("Web登录"),
+              subtitle: const Text("在官方网页登录，检测到登录 Cookie 后自动保存"),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                Get.back();
+                var result = await Get.toNamed(RoutePath.kDouyinWebLogin);
+                if (result == DouyinWebLoginController.manualCookieResult) {
+                  doDouyinCookieConfig();
+                }
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text("Cookie登录"),
+            subtitle: const Text("手动粘贴完整 Cookie 或 ttwid 值"),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Get.back();
+              doDouyinCookieConfig();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void doDouyinCookieConfig() {
