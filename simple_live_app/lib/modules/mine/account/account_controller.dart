@@ -10,6 +10,11 @@ import 'package:simple_live_app/services/douyin_account_service.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
 class AccountController extends GetxController {
+  static String normalizeDouyinCookieInput(String input) {
+    final value = input.trim();
+    return value.isEmpty || value.contains('=') ? value : 'ttwid=$value';
+  }
+
   void bilibiliTap() async {
     if (BiliBiliAccountService.instance.logined.value) {
       var result = await Utils.showAlertDialog("确定要退出哔哩哔哩账号吗？", title: "退出登录");
@@ -81,10 +86,10 @@ class AccountController extends GetxController {
 
   void douyinTap() async {
     if (DouyinAccountService.instance.hasCookie.value) {
-      var result = await Utils.showAlertDialog("确定要清除自定义 ttwid 吗？", title: "清除配置");
+      var result = await Utils.showAlertDialog("确定要清除自定义抖音 Cookie 吗？", title: "清除配置");
       if (result) {
         DouyinAccountService.instance.clearCookie();
-        SmartDialog.showToast("已清除自定义 ttwid，将使用默认 ttwid");
+        SmartDialog.showToast("已清除自定义 Cookie，将使用默认 ttwid");
       }
     } else {
       doDouyinCookieConfig();
@@ -92,24 +97,20 @@ class AccountController extends GetxController {
   }
 
   void doDouyinCookieConfig() {
-    // 初始化文本框时，只显示 ttwid 的值部分
-    var savedCookie = DouyinAccountService.instance.cookie;
-    var displayText = savedCookie;
-    if (savedCookie.startsWith('ttwid=')) {
-      displayText = savedCookie.substring(6); // 去掉 "ttwid="
-    }
-    var controller = TextEditingController(text: displayText);
+    var controller = TextEditingController(
+      text: DouyinAccountService.instance.cookie,
+    );
 
     Get.dialog(
       AlertDialog(
-        title: const Text("配置抖音 ttwid"),
+        title: const Text("配置抖音 Cookie"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "默认已内置有效的 ttwid，可观看所有画质（包括蓝光）。\n如有需要可自定义配置。",
+                "观看直播可使用默认 ttwid；搜索需要有效的登录 Cookie。\n请填写浏览器登录抖音后的完整 Cookie 请求头值，也兼容单独的 ttwid 值。Cookie 含登录凭据，请勿分享。",
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 12),
@@ -117,7 +118,7 @@ class AccountController extends GetxController {
                 controller: controller,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  hintText: "请粘贴 ttwid 值（留空则使用默认值）",
+                  hintText: "完整 Cookie 或 ttwid 值（留空使用默认值）",
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -144,19 +145,14 @@ class AccountController extends GetxController {
           ),
           TextButton(
             onPressed: () {
-              var input = controller.text.trim();
+              final cookie = normalizeDouyinCookieInput(controller.text);
               Get.back();
-              if (input.isEmpty) {
+              if (cookie.isEmpty) {
                 DouyinAccountService.instance.clearCookie();
                 SmartDialog.showToast("已清除自定义 Cookie，将使用默认 ttwid");
               } else {
-                // 如果用户只输入了 ttwid 值，自动添加 "ttwid=" 前缀
-                var cookie = input;
-                if (!input.startsWith('ttwid=')) {
-                  cookie = 'ttwid=$input';
-                }
                 DouyinAccountService.instance.setCookie(cookie);
-                SmartDialog.showToast("ttwid 已保存");
+                SmartDialog.showToast("Cookie 已保存，登录状态尚未验证");
               }
             },
             child: const Text("确定"),

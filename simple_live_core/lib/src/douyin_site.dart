@@ -624,13 +624,10 @@ class DouyinSite implements LiveSite {
     return LivePlayUrl(urls: List<String>.from(quality.data));
   }
 
-  @override
-  Future<LiveSearchRoomResult> searchRooms(
-    String keyword, {
-    int page = 1,
-  }) async {
+  /// 构造抖音直播间搜索请求地址
+  static Uri buildSearchRoomUri(String keyword, int page) {
     String serverUrl = "https://www.douyin.com/aweme/v1/web/live/search/";
-    var uri = Uri.parse(serverUrl).replace(
+    return Uri.parse(serverUrl).replace(
       scheme: "https",
       port: 443,
       queryParameters: {
@@ -669,31 +666,77 @@ class DouyinSite implements LiveSite {
         "webid": "7382872326016435738",
       },
     );
-    //var requlestUrl = await getAbogusUrl(uri.toString());
-    var requlestUrl = uri.toString();
-    var headResp = await HttpClient.instance.head(
-      'https://live.douyin.com',
-      header: headers,
-    );
-    var dyCookie = "";
-    headResp.headers["set-cookie"]?.forEach((element) {
-      var cookie = element.split(";")[0];
-      if (cookie.contains("ttwid")) {
-        dyCookie += "$cookie;";
-      }
-      if (cookie.contains("__ac_nonce")) {
-        dyCookie += "$cookie;";
-      }
-    });
+  }
 
+  /// 解析抖音直播间搜索响应
+  static LiveSearchRoomResult parseSearchRoomResult(dynamic result) {
+    if (result == null || result == "" || result == "blocked") {
+      throw Exception("抖音直播搜索被限制，请稍后再试");
+    }
+    if (result is! Map) {
+      throw Exception("抖音搜索接口返回格式异常");
+    }
+    var statusCode = result["status_code"];
+    if (statusCode != null && statusCode != 0) {
+      if (statusCode == 2483) {
+        throw Exception("抖音搜索需要登录：请在账号设置中配置已登录抖音的 Cookie");
+      }
+      throw Exception("抖音直播搜索失败（status_code=$statusCode）");
+    }
+    var items = <LiveRoomItem>[];
+    var data = result["data"];
+    if (data is List) {
+      for (var item in data) {
+        if (item is! Map) {
+          continue;
+        }
+        var lives = item["lives"];
+        var rawData = lives is Map ? lives["rawdata"] : null;
+        if (rawData == null) {
+          continue;
+        }
+        try {
+          var itemData = json.decode(rawData.toString());
+          var owner = itemData["owner"];
+          var webRid = owner is Map ? owner["web_rid"] : null;
+          if (webRid == null || webRid.toString().trim().isEmpty) {
+            continue;
+          }
+          items.add(
+            LiveRoomItem(
+              roomId: webRid.toString(),
+              title: itemData["title"].toString(),
+              cover: itemData["cover"]["url_list"][0].toString(),
+              userName: owner["nickname"].toString(),
+              online:
+                  int.tryParse(itemData["stats"]["total_user"].toString()) ?? 0,
+            ),
+          );
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+    var hasMore = result.containsKey("has_more")
+        ? (result["has_more"] == 1 || result["has_more"] == true)
+        : items.length >= 10;
+    return LiveSearchRoomResult(hasMore: hasMore, items: items);
+  }
+
+  @override
+  Future<LiveSearchRoomResult> searchRooms(
+    String keyword, {
+    int page = 1,
+  }) async {
+    var uri = buildSearchRoomUri(keyword, page);
+    var requestUrl = DouyinSign.getAbogusUrl(uri.toString(), kDefaultUserAgent);
     var result = await HttpClient.instance.getJson(
-      requlestUrl,
-      queryParameters: {},
+      requestUrl,
       header: {
+        ...getRequestHeaders(),
         "Authority": 'www.douyin.com',
         'accept': 'application/json, text/plain, */*',
         'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'cookie': dyCookie,
         'priority': 'u=1, i',
         'referer':
             'https://www.douyin.com/search/${Uri.encodeComponent(keyword)}?type=live',
@@ -704,25 +747,9 @@ class DouyinSite implements LiveSite {
         'sec-fetch-dest': 'empty',
         'sec-fetch-mode': 'cors',
         'sec-fetch-site': 'same-origin',
-        'user-agent': kDefaultUserAgent,
       },
     );
-    if (result == "" || result == 'blocked') {
-      throw Exception("抖音直播搜索被限制，请稍后再试");
-    }
-    var items = <LiveRoomItem>[];
-    for (var item in result["data"] ?? []) {
-      var itemData = json.decode(item["lives"]["rawdata"].toString());
-      var roomItem = LiveRoomItem(
-        roomId: itemData["owner"]["web_rid"].toString(),
-        title: itemData["title"].toString(),
-        cover: itemData["cover"]["url_list"][0].toString(),
-        userName: itemData["owner"]["nickname"].toString(),
-        online: int.tryParse(itemData["stats"]["total_user"].toString()) ?? 0,
-      );
-      items.add(roomItem);
-    }
-    return LiveSearchRoomResult(hasMore: items.length >= 10, items: items);
+    return parseSearchRoomResult(result);
   }
 
   @override
@@ -730,7 +757,7 @@ class DouyinSite implements LiveSite {
     String keyword, {
     int page = 1,
   }) async {
-    throw Exception("抖音暂不支持搜索主播，请直接搜索直播间");
+    throw Exception("抖音暂不支持按主播名搜索，请到直播间栏目按主播名搜索在播房间");
   }
 
   @override
